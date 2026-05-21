@@ -29,6 +29,10 @@ import {
   RiExternalLinkLine,
   RiFilter3Line,
   RiLoader4Line,
+  RiDeleteBin3Line,
+  RiDeleteBin7Line,
+  RiEdit2Fill,
+  RiEditLine,
 } from "react-icons/ri";
 import Sidebar from "../../components/Sidebar";
 import { useAuth } from "../../context/AuthContext";
@@ -349,6 +353,11 @@ export default function InboxPage() {
         ),
       }));
     } catch {/* ignore */ }
+  };
+
+  // ── Edit review item ──
+  const handleEditReviewItem = async (item) => {
+
   };
 
   // ── Delete review item ──
@@ -732,9 +741,11 @@ export default function InboxPage() {
                           <div key={att.id ?? i} className="attachmentCard">
                             <RiFilePdfLine className="pdfIcon iconSize20" />
                             <div className="attachmentInfo">
-                              <span className="attachmentName">{att.filename}</span>
+                              <span className="attachmentName">{att.file_name}</span>
                               <span className="attachmentSize">
-                                {(att.size_bytes / 1024).toFixed(0)} KB
+                                {att.file_size >= 1024 * 1024
+                                  ? (att.file_size / (1024 * 1024)).toFixed(1) + " MB"
+                                  : (att.file_size / 1024).toFixed(1) + " KB"}
                               </span>
                             </div>
                             <button
@@ -879,13 +890,22 @@ export default function InboxPage() {
               const statusClass = STATUS_CLASS[item.status] || "reviewStatusOpen";
               return (
                 <div key={item.id ?? idx} className="reviewCard">
+                  <span className="badge text-bg-primary mb-2">Primary</span>
+
                   <div className="reviewCardHeader">
                     <span className="reviewCardTitle">{item.title}</span>
+
+                    <button
+                      className="iconBtn"
+                      onClick={() => handleEditReviewItem(item)}
+                    >
+                      <RiEditLine className="iconSize14" />
+                    </button>
                     <button
                       className="iconBtn"
                       onClick={() => handleDeleteReviewItem(item)}
                     >
-                      <RiMoreFill className="iconSize14" />
+                      <RiDeleteBin7Line className="iconSize14" />
                     </button>
                   </div>
 
@@ -910,8 +930,8 @@ export default function InboxPage() {
                       </select>
                     </div>
 
-                    <div className="reviewMetaRow">
-                      <span className="reviewMetaLabel">Stackholder</span>
+                    <div className="reviewMetaRow mt-3">
+                      <span className="reviewMetaLabel me-3">Stackholder</span>
                       <span className="reviewMetaValue">
                         {item.owner_name ? (
                           <>
@@ -925,7 +945,7 @@ export default function InboxPage() {
                     </div>
 
                     <div className="reviewMetaRow">
-                      <span className="reviewMetaLabel">Due Date</span>
+                      <span className="reviewMetaLabel me-3">Due Date</span>
                       <span className="reviewMetaValue">
                         {item.due_date ? (
                           <>
@@ -937,7 +957,7 @@ export default function InboxPage() {
                     </div>
 
                     <div className="reviewMetaRow">
-                      <span className="reviewMetaLabel">Evidence</span>
+                      <span className="reviewMetaLabel me-3">Evidence</span>
                       <span className="reviewMetaValue">
                         {item.evidence_filename ? (
                           <>
