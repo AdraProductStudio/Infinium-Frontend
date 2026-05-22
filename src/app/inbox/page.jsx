@@ -36,6 +36,7 @@ import {
 } from "react-icons/ri";
 import Sidebar from "../../components/Sidebar";
 import { useAuth } from "../../context/AuthContext";
+import toast from "react-hot-toast";
 import {
   listThreads,
   searchThreads,
@@ -53,6 +54,12 @@ import {
   getMailConnections,
   oauthExchange,
   setTokens,
+  listProjects,
+  getStakeholders,
+  createProjectReviewItem,
+  createTask,
+  updateTask,
+  uploadTaskAttachment,
 } from "../../lib/api";
 import "./inbox.css";
 
@@ -165,11 +172,21 @@ export default function InboxPage() {
   const [syncingAccount, setSyncingAccount] = useState(false);
   const [gmailError, setGmailError] = useState(false);
   const [emails, setEmails] = useState([]);
+  const [editingItemId, setEditingItemId] = useState(null);
+  const [editDraft, setEditDraft] = useState({});
+  const [newAttachmentText, setNewAttachmentText] = useState("");
   const [fetchingEmails, setFetchingEmails] = useState(true);
   const [activeEmailId, setActiveEmailId] = useState(null);
 
+  const [projects, setProjects] = useState([]);
+  const [stakeholders, setStakeholders] = useState([]);
+  const [selectedProjectId, setSelectedProjectId] = useState(null);
+  const [savingTasks, setSavingTasks] = useState(false);
+  const [taskUploadingId, setTaskUploadingId] = useState(null);
+
   const searchTimeout = useRef(null);
   const initRan = useRef(false);
+  const fileInputRefs = useRef({});
 
   // Check mail connections on mount; fetch emails if Gmail is connected
   useEffect(() => {
@@ -237,7 +254,12 @@ export default function InboxPage() {
     if (!authLoading && !user) router.push("/login");
   }, [authLoading, user, router, authCode]);
 
-
+  // ── Load projects & stakeholders ──
+  useEffect(() => {
+    if (authLoading || !user) return;
+    listProjects().then((res) => setProjects(res.data || [])).catch(() => {});
+    getStakeholders().then((res) => setStakeholders(res.data || [])).catch(() => {});
+  }, [user, authLoading]);
 
   const loadThreads = async (accountId, label) => {
     setLoadingThreads(true);
@@ -324,6 +346,7 @@ export default function InboxPage() {
       const raw = res.data || {};
       const tasks = Array.isArray(raw.tasks) ? raw.tasks : [];
       const discipline = normalizeDiscipline(raw.review_item?.discipline);
+      const projectName = raw.project_name || raw.suggested_project?.name || null;
       const items = tasks.map((t, i) => ({
         id: i,
         title: t.title,
@@ -332,8 +355,15 @@ export default function InboxPage() {
         owner_name: t.assignee_name || null,
         due_date: t.due_date || null,
         notes: t.description || null,
+        project_name: projectName,
+        referenced_attachments: Array.isArray(t.referenced_attachments) ? t.referenced_attachments : [],
       }));
-      setActiveThread((t) => ({ ...t, review_items: items }));
+      setActiveThread((t) => ({
+        ...t,
+        review_items: items,
+        ai_review_item: raw.review_item || null,
+        ai_attachments: Array.isArray(raw.attachments) ? raw.attachments : [],
+      }));
     } catch {
       /* ignore */
     } finally {
@@ -356,8 +386,46 @@ export default function InboxPage() {
   };
 
   // ── Edit review item ──
-  const handleEditReviewItem = async (item) => {
+  const handleEditReviewItem = (item, idx) => {
+    setEditingItemId(item.id ?? idx);
+    setEditDraft({ ...item });
+    setNewAttachmentText("");
+  };
 
+  const handleSaveEditItem = () => {
+    setActiveThread((t) => ({
+      ...t,
+      review_items: t.review_items.map((r, i) =>
+        (r.id ?? i) === editingItemId ? { ...editDraft } : r
+      ),
+    }));
+    setEditingItemId(null);
+    setEditDraft({});
+  };
+
+  const handleCancelEdit = () => {
+    setEditingItemId(null);
+    setEditDraft({});
+  };
+
+  const handleDraftChange = (field, value) => {
+    setEditDraft((d) => ({ ...d, [field]: value }));
+  };
+
+  const handleRemoveAttachment = (filename) => {
+    setEditDraft((d) => ({
+      ...d,
+      referenced_attachments: (d.referenced_attachments || []).filter((a) => a !== filename),
+    }));
+  };
+
+  const handleAddAttachment = () => {
+    if (!newAttachmentText.trim()) return;
+    setEditDraft((d) => ({
+      ...d,
+      referenced_attachments: [...(d.referenced_attachments || []), newAttachmentText.trim()],
+    }));
+    setNewAttachmentText("");
   };
 
   // ── Delete review item ──
@@ -370,6 +438,74 @@ export default function InboxPage() {
         review_items: t.review_items.filter((r) => r.id !== item.id),
       }));
     } catch {/* ignore */ }
+  };
+
+  // ── Save all tasks to backend ──
+  const handleSaveAllTasks = async () => {
+    if (!selectedProjectId || reviewItems.length === 0) return;
+    setSavingTasks(true);
+    try {
+      const aiRI = activeThread?.ai_review_item || {};
+      const riRes = await createProjectReviewItem(selectedProjectId, {
+        title: aiRI.title || activeThread?.subject || "Email Review Item",
+        description: aiRI.description || null,
+        discipline: normalizeDiscipline(aiRI.discipline) || "Architecture",
+        priority: ["high", "medium", "low"].includes(aiRI.priority) ? aiRI.priority : "medium",
+        due_date: aiRI.due_date || null,
+        source: "email",
+      });
+      const reviewItemId = riRes.data?.id;
+      if (!reviewItemId) throw new Error("No review item id returned");
+      const savedItems = await Promise.all(
+        reviewItems.map(async (item) => {
+          const taskRes = await createTask(selectedProjectId, reviewItemId, {
+            title: item.title,
+            description: item.notes || null,
+            stakeholder_id: item.stakeholder_id || null,
+            due_date: item.due_date || null,
+          });
+          return {
+            ...item,
+            backend_task_id: taskRes.data?.id,
+            backend_review_item_id: reviewItemId,
+            task_attachments: [],
+          };
+        })
+      );
+      setActiveThread((t) => ({ ...t, review_items: savedItems }));
+      toast.success("Tasks saved to project");
+    } catch (err) {
+      console.error("Save failed", err);
+      toast.error("Failed to save tasks");
+    } finally {
+      setSavingTasks(false);
+    }
+  };
+
+  // ── Upload file to a saved task ──
+  const handleTaskFileUpload = async (item, idx, e) => {
+    const file = e.target.files?.[0];
+    if (!file || !item.backend_task_id || !selectedProjectId) return;
+    const itemKey = item.id ?? idx;
+    setTaskUploadingId(itemKey);
+    try {
+      const res = await uploadTaskAttachment(selectedProjectId, item.backend_task_id, file);
+      const attachment = res.data;
+      setActiveThread((t) => ({
+        ...t,
+        review_items: t.review_items.map((r, i) =>
+          (r.id ?? i) === itemKey
+            ? { ...r, task_attachments: [...(r.task_attachments || []), attachment] }
+            : r
+        ),
+      }));
+    } catch (err) {
+      console.error("Upload failed", err);
+      toast.error("Upload failed");
+    } finally {
+      setTaskUploadingId(null);
+      if (fileInputRefs.current[itemKey]) fileInputRefs.current[itemKey].value = "";
+    }
   };
 
   // ── Sync account ──
@@ -853,7 +989,6 @@ export default function InboxPage() {
             <RiFilter3Line className="iconSize15" />
             <span>Extracted Review Items</span>
             <span className="reviewCount">{reviewItems.length}</span>
-            <RiFilter3Line className="rightPanelFilterIconPush iconSize15" />
           </div>
           <button
             className="createReviewBtn"
@@ -863,6 +998,62 @@ export default function InboxPage() {
             {extracting ? "Extracting…" : "Extract Items"}
           </button>
         </div>
+
+        {/* Project selector + Save to Project */}
+        {reviewItems.length > 0 && (
+          <div className="projectSaveRow">
+            <select
+              className="projectSelector"
+              value={selectedProjectId || ""}
+              onChange={(e) => setSelectedProjectId(e.target.value ? Number(e.target.value) : null)}
+            >
+              <option value="">Select project…</option>
+              {projects.map((p) => (
+                <option key={p.id} value={p.id}>{p.name}</option>
+              ))}
+            </select>
+            <button
+              className="saveToProjectBtn"
+              onClick={handleSaveAllTasks}
+              disabled={!selectedProjectId || savingTasks || (reviewItems.length > 0 && reviewItems.every((r) => r.backend_task_id))}
+            >
+              {savingTasks ? (
+                <><RiLoader4Line className="spinnerIcon iconSize13" style={{ marginRight: 4 }} />Saving…</>
+              ) : reviewItems.length > 0 && reviewItems.every((r) => r.backend_task_id) ? (
+                <><RiCheckboxCircleLine className="iconSize13" style={{ marginRight: 4 }} />Saved</>
+              ) : "Save to Project"}
+            </button>
+          </div>
+        )}
+
+        {/* Thread attachments from AI extraction */}
+        {activeThread?.ai_attachments?.length > 0 && (
+          <div className="threadAttachmentsStrip">
+            <span className="threadAttachLabel">
+              <RiAttachment2 className="iconSize12" style={{ marginRight: 4 }} />
+              Thread Files
+            </span>
+            <div className="threadAttachList">
+              {activeThread.ai_attachments.map((att, i) => {
+                const actual = activeThread.messages
+                  ?.flatMap((m) => m.attachments || [])
+                  .find((a) => a.file_name === att);
+                return (
+                  <span
+                    key={i}
+                    className={`threadAttachChip${actual ? " threadAttachChipLink" : ""}`}
+                    onClick={() => actual && downloadAttachment(actual.id, activeAccount?.id)}
+                    title={actual ? "Click to download" : att}
+                  >
+                    <RiAttachment2 className="iconSize11" style={{ marginRight: 3 }} />
+                    {att}
+                    {actual && <RiDownload2Line className="iconSize11" style={{ marginLeft: 4 }} />}
+                  </span>
+                );
+              })}
+            </div>
+          </div>
+        )}
 
         <div className="aiDraftNotice">
           <RiCheckboxCircleLine className="iconSize13" />
@@ -886,43 +1077,68 @@ export default function InboxPage() {
             </div>
           ) : (
             reviewItems.map((item, idx) => {
+              const isEditing = editingItemId === (item.id ?? idx);
               const tagClass = DISCIPLINE_CLASS[item.discipline] || "reviewTagArch";
               const statusClass = STATUS_CLASS[item.status] || "reviewStatusOpen";
               return (
                 <div key={item.id ?? idx} className="reviewCard">
-                  <span className="badge text-bg-primary mb-2">Primary</span>
-
                   <div className="reviewCardHeader">
-                    <span className="reviewCardTitle">{item.title}</span>
-
-                    <button
-                      className="iconBtn"
-                      onClick={() => handleEditReviewItem(item)}
-                    >
-                      <RiEditLine className="iconSize14" />
-                    </button>
-                    <button
-                      className="iconBtn"
-                      onClick={() => handleDeleteReviewItem(item)}
-                    >
-                      <RiDeleteBin7Line className="iconSize14" />
-                    </button>
+                    {isEditing ? (
+                      <input
+                        className="editTitleInput"
+                        value={editDraft.title || ""}
+                        onChange={(e) => handleDraftChange("title", e.target.value)}
+                      />
+                    ) : (
+                      <span className="reviewCardTitle">{item.title}</span>
+                    )}
+                    {isEditing ? (
+                      <div className="editCardActions">
+                        <button className="editCancelBtn" onClick={handleCancelEdit}>Cancel</button>
+                        <button className="editSaveBtn" onClick={handleSaveEditItem}>Save</button>
+                      </div>
+                    ) : (
+                      <>
+                        <button className="iconBtn" onClick={() => handleEditReviewItem(item, idx)}>
+                          <RiEditLine className="iconSize14" />
+                        </button>
+                        <button className="iconBtn" onClick={() => handleDeleteReviewItem(item)}>
+                          <RiDeleteBin7Line className="iconSize14" />
+                        </button>
+                      </>
+                    )}
                   </div>
 
                   <div className="reviewCardMeta">
                     <div className="reviewTagRow">
-                      <span className={`reviewTag ${tagClass}`}>
-                        {item.discipline === "Fire/Life Safety" ? (
-                          <RiFireLine className="iconMr3 iconSize11" />
-                        ) : (
-                          <RiAlertLine className="iconMr3 iconSize11" />
-                        )}
-                        {item.discipline || "General"}
-                      </span>
+                      {isEditing ? (
+                        <select
+                          className="editSelect"
+                          value={editDraft.discipline || ""}
+                          onChange={(e) => handleDraftChange("discipline", e.target.value)}
+                        >
+                          {Object.keys(DISCIPLINE_CLASS).map((d) => (
+                            <option key={d} value={d}>{d}</option>
+                          ))}
+                        </select>
+                      ) : (
+                        <span className={`reviewTag ${tagClass}`}>
+                          {item.discipline === "Fire/Life Safety" ? (
+                            <RiFireLine className="iconMr3 iconSize11" />
+                          ) : (
+                            <RiAlertLine className="iconMr3 iconSize11" />
+                          )}
+                          {item.discipline || "General"}
+                        </span>
+                      )}
                       <select
-                        className={`reviewStatus ${statusClass}`}
-                        value={item.status}
-                        onChange={(e) => handleStatusChange(item, e.target.value)}
+                        className={`reviewStatus ${isEditing ? "reviewStatusEditing" : statusClass}`}
+                        value={isEditing ? (editDraft.status || "OPEN") : item.status}
+                        onChange={(e) =>
+                          isEditing
+                            ? handleDraftChange("status", e.target.value)
+                            : handleStatusChange(item, e.target.value)
+                        }
                       >
                         {Object.entries(STATUS_LABEL).map(([v, l]) => (
                           <option key={v} value={v}>{l}</option>
@@ -930,43 +1146,190 @@ export default function InboxPage() {
                       </select>
                     </div>
 
-                    <div className="reviewMetaRow mt-3">
-                      <span className="reviewMetaLabel me-3">Stackholder</span>
-                      <span className="reviewMetaValue">
-                        {item.owner_name ? (
-                          <>
-                            <span className="ownerInitialsBadge">
-                              {item.owner_name.slice(0, 2).toUpperCase()}
-                            </span>
-                            {item.owner_name}
-                          </>
-                        ) : <span className="reviewMetaNone">-</span>}
-                      </span>
+                    <div className="reviewMetaRow mt-2">
+                      <span className="reviewMetaLabel me-3">Project</span>
+                      {isEditing ? (
+                        <select
+                          className="editSelectInline"
+                          value={editDraft.project_id || ""}
+                          onChange={(e) => {
+                            const pid = e.target.value ? Number(e.target.value) : null;
+                            const proj = projects.find((p) => p.id === pid);
+                            handleDraftChange("project_id", pid);
+                            handleDraftChange("project_name", proj?.name || "");
+                          }}
+                        >
+                          <option value="">Select project…</option>
+                          {projects.map((p) => (
+                            <option key={p.id} value={p.id}>{p.name}</option>
+                          ))}
+                        </select>
+                      ) : (
+                        <span className="reviewMetaValue">
+                          {item.project_name ? item.project_name : <span className="reviewMetaNone">-</span>}
+                        </span>
+                      )}
+                    </div>
+
+                    <div className="reviewMetaRow mt-2">
+                      <span className="reviewMetaLabel me-3">Stakeholder</span>
+                      {isEditing ? (
+                        <select
+                          className="editSelectInline"
+                          value={editDraft.stakeholder_id || ""}
+                          onChange={(e) => {
+                            const sid = e.target.value ? Number(e.target.value) : null;
+                            const stk = stakeholders.find((s) => s.id === sid);
+                            handleDraftChange("stakeholder_id", sid);
+                            handleDraftChange("owner_name", stk?.name || "");
+                          }}
+                        >
+                          <option value="">Select stakeholder…</option>
+                          {stakeholders.map((s) => (
+                            <option key={s.id} value={s.id}>
+                              {s.name}{s.discipline ? ` (${s.discipline})` : ""}
+                            </option>
+                          ))}
+                        </select>
+                      ) : (
+                        <span className="reviewMetaValue">
+                          {item.owner_name ? (
+                            <>
+                              <span className="ownerInitialsBadge">
+                                {item.owner_name.slice(0, 2).toUpperCase()}
+                              </span>
+                              {item.owner_name}
+                            </>
+                          ) : <span className="reviewMetaNone">-</span>}
+                        </span>
+                      )}
                     </div>
 
                     <div className="reviewMetaRow">
                       <span className="reviewMetaLabel me-3">Due Date</span>
-                      <span className="reviewMetaValue">
-                        {item.due_date ? (
-                          <>
-                            <RiTimeLine className="iconMr4 iconSize13" />
-                            {formatDate(item.due_date)}
-                          </>
-                        ) : <span className="reviewMetaNone">-</span>}
-                      </span>
+                      {isEditing ? (
+                        <input
+                          type="date"
+                          className="editInputInline"
+                          value={editDraft.due_date || ""}
+                          onChange={(e) => handleDraftChange("due_date", e.target.value)}
+                        />
+                      ) : (
+                        <span className="reviewMetaValue">
+                          {item.due_date ? (
+                            <>
+                              <RiTimeLine className="iconMr4 iconSize13" />
+                              {formatDate(item.due_date)}
+                            </>
+                          ) : <span className="reviewMetaNone">-</span>}
+                        </span>
+                      )}
                     </div>
 
                     <div className="reviewMetaRow">
                       <span className="reviewMetaLabel me-3">Evidence</span>
-                      <span className="reviewMetaValue">
-                        {item.evidence_filename ? (
+                      {isEditing ? (
+                        <input
+                          className="editInputInline"
+                          value={editDraft.evidence_filename || ""}
+                          onChange={(e) => handleDraftChange("evidence_filename", e.target.value)}
+                          placeholder="filename…"
+                        />
+                      ) : (
+                        <span className="reviewMetaValue">
+                          {item.evidence_filename ? (
+                            <>
+                              <RiAttachment2 className="iconMr4 iconSize13" />
+                              <span className="evidenceLink">{item.evidence_filename}</span>
+                              <RiExternalLinkLine className="iconMl4 iconSize12" />
+                            </>
+                          ) : <span className="reviewMetaNone">-</span>}
+                        </span>
+                      )}
+                    </div>
+
+                    <div className="reviewMetaRow" style={{ alignItems: "flex-start" }}>
+                      <span className="reviewMetaLabel me-3" style={{ paddingTop: 3 }}>Ref. Files</span>
+                      {isEditing ? (
+                        <div className="editAttachmentsCol">
+                          <div className="editAttachChips">
+                            {(editDraft.referenced_attachments || []).map((att, i) => (
+                              <span key={i} className="attachChipEdit">
+                                <RiAttachment2 className="iconSize11" style={{ marginRight: 3 }} />
+                                {att}
+                                <button className="attachChipRemove" onClick={() => handleRemoveAttachment(att)}>×</button>
+                              </span>
+                            ))}
+                          </div>
+                          <div className="addAttachRow">
+                            <input
+                              className="editInputSm"
+                              value={newAttachmentText}
+                              onChange={(e) => setNewAttachmentText(e.target.value)}
+                              placeholder="add filename…"
+                              onKeyDown={(e) => { if (e.key === "Enter") handleAddAttachment(); }}
+                            />
+                            <button className="addAttachBtn" onClick={handleAddAttachment}>Add</button>
+                          </div>
+                        </div>
+                      ) : (
+                        <div className="attachChipList">
+                          {item.referenced_attachments?.length > 0 ? (
+                            item.referenced_attachments.map((att, i) => (
+                              <span key={i} className="attachChip">
+                                <RiAttachment2 className="iconMr3 iconSize11" />
+                                {att}
+                              </span>
+                            ))
+                          ) : <span className="reviewMetaNone">-</span>}
+                        </div>
+                      )}
+                    </div>
+
+                    {/* Task uploaded files + per-task upload */}
+                    <div className="reviewMetaRow" style={{ alignItems: "flex-start" }}>
+                      <span className="reviewMetaLabel me-3" style={{ paddingTop: 3 }}>Uploads</span>
+                      <div className="taskUploadCol">
+                        {(item.task_attachments || []).map((att, i) => (
+                          <span key={i} className="taskAttachChip">
+                            <RiAttachment2 className="iconSize11" style={{ marginRight: 3 }} />
+                            <span className="taskAttachName">{att.file_name}</span>
+                            <button
+                              className="taskAttachDownload"
+                              onClick={() => downloadAttachment(att.id, activeAccount?.id)}
+                              title="Download"
+                            >
+                              <RiDownload2Line className="iconSize11" />
+                            </button>
+                          </span>
+                        ))}
+                        {item.backend_task_id && selectedProjectId ? (
                           <>
-                            <RiAttachment2 className="iconMr4 iconSize13" />
-                            <span className="evidenceLink">{item.evidence_filename}</span>
-                            <RiExternalLinkLine className="iconMl4 iconSize12" />
+                            <input
+                              type="file"
+                              style={{ display: "none" }}
+                              ref={(el) => { fileInputRefs.current[item.id ?? idx] = el; }}
+                              onChange={(e) => handleTaskFileUpload(item, idx, e)}
+                            />
+                            <button
+                              className="taskUploadBtn"
+                              disabled={taskUploadingId === (item.id ?? idx)}
+                              onClick={() => fileInputRefs.current[item.id ?? idx]?.click()}
+                            >
+                              {taskUploadingId === (item.id ?? idx) ? (
+                                <RiLoader4Line className="spinnerIcon iconSize12" style={{ marginRight: 3 }} />
+                              ) : (
+                                <RiAttachment2 className="iconSize12" style={{ marginRight: 3 }} />
+                              )}
+                              {taskUploadingId === (item.id ?? idx) ? "Uploading…" : "Upload file"}
+                            </button>
                           </>
-                        ) : <span className="reviewMetaNone">-</span>}
-                      </span>
+                        ) : (
+                          <span className="taskUploadHint">
+                            {item.backend_task_id ? "Select a project to upload" : "Save to project to upload files"}
+                          </span>
+                        )}
+                      </div>
                     </div>
                   </div>
                 </div>

@@ -1403,3 +1403,361 @@
   }
 }
 
+/* ── Edit Mode ── */
+.editTitleInput {
+  flex: 1;
+  border: 1px solid #d1d5db;
+  border-radius: 6px;
+  padding: 4px 8px;
+  font-size: 13px;
+  font-weight: 600;
+  color: #111827;
+  font-family: inherit;
+  outline: none;
+  min-width: 0;
+}
+.editTitleInput:focus {
+  border-color: #2563eb;
+  box-shadow: 0 0 0 2px rgba(37, 99, 235, 0.1);
+}
+
+.editCardActions {
+  display: flex;
+  gap: 6px;
+  flex-shrink: 0;
+  margin-left: auto;
+}
+
+.editSaveBtn {
+  background: #2563eb;
+  color: #fff;
+  border: none;
+  border-radius: 6px;
+  padding: 4px 10px;
+  font-size: 11.5px;
+  font-weight: 600;
+  cursor: pointer;
+  font-family: inherit;
+}
+.editSaveBtn:hover { background: #1d4ed8; }
+
+.editCancelBtn {
+  background: #f3f4f6;
+  color: #374151;
+  border: none;
+  border-radius: 6px;
+  padding: 4px 10px;
+  font-size: 11.5px;
+  font-weight: 600;
+  cursor: pointer;
+  font-family: inherit;
+}
+.editCancelBtn:hover { background: #e5e7eb; }
+
+.editSelect {
+  font-size: 11.5px;
+  font-weight: 600;
+  border: 1px solid #d1d5db;
+  border-radius: 20px;
+  padding: 3px 8px;
+  color: #374151;
+  background: #fff;
+  cursor: pointer;
+  font-family: inherit;
+  outline: none;
+}
+.editSelect:focus { border-color: #2563eb; }
+
+.reviewStatusEditing {
+  color: #374151;
+  background: #f3f4f6;
+  border: 1px solid #d1d5db;
+}
+
+.editInputInline {
+  flex: 1;
+  border: 1px solid #d1d5db;
+  border-radius: 5px;
+  padding: 3px 7px;
+  font-size: 12px;
+  color: #374151;
+  font-family: inherit;
+  outline: none;
+  min-width: 0;
+  width: 100%;
+}
+.editInputInline:focus {
+  border-color: #2563eb;
+  box-shadow: 0 0 0 2px rgba(37, 99, 235, 0.1);
+}
+
+.editAttachmentsCol {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  flex: 1;
+  min-width: 0;
+}
+
+.editAttachChips {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px;
+}
+
+.attachChipEdit {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  background: #f0f4ff;
+  border: 1px solid #bfdbfe;
+  border-radius: 20px;
+  padding: 2px 6px 2px 6px;
+  font-size: 11px;
+  color: #1d4ed8;
+}
+
+.attachChipRemove {
+  background: none;
+  border: none;
+  color: #9ca3af;
+  cursor: pointer;
+  padding: 0;
+  font-size: 13px;
+  line-height: 1;
+  margin-left: 2px;
+  display: flex;
+  align-items: center;
+}
+.attachChipRemove:hover { color: #dc2626; }
+
+.addAttachRow {
+  display: flex;
+  gap: 4px;
+  align-items: center;
+}
+
+.editInputSm {
+  flex: 1;
+  border: 1px solid #d1d5db;
+  border-radius: 5px;
+  padding: 3px 7px;
+  font-size: 11px;
+  color: #374151;
+  font-family: inherit;
+  outline: none;
+  min-width: 0;
+}
+.editInputSm:focus { border-color: #2563eb; }
+
+.addAttachBtn {
+  background: #f3f4f6;
+  border: 1px solid #d1d5db;
+  border-radius: 5px;
+  padding: 3px 8px;
+  font-size: 11px;
+  color: #374151;
+  cursor: pointer;
+  font-family: inherit;
+  white-space: nowrap;
+}
+.addAttachBtn:hover { background: #e5e7eb; }
+
+.attachChipList {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px;
+  align-items: center;
+}
+
+.attachChip {
+  display: inline-flex;
+  align-items: center;
+  gap: 3px;
+  background: #f0f4ff;
+  border: 1px solid #bfdbfe;
+  border-radius: 20px;
+  padding: 2px 8px 2px 6px;
+  font-size: 11px;
+  color: #1d4ed8;
+  font-weight: 500;
+}
+
+/* ── Project Selector + Save Row ── */
+.projectSaveRow {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 8px 14px;
+  border-bottom: 1px solid #e5e7eb;
+  background: #f9fafb;
+}
+
+.projectSelector {
+  flex: 1;
+  min-width: 0;
+  border: 1px solid #d1d5db;
+  border-radius: 7px;
+  padding: 5px 8px;
+  font-size: 12px;
+  color: #374151;
+  background: #fff;
+  font-family: inherit;
+  outline: none;
+  cursor: pointer;
+}
+.projectSelector:focus { border-color: #2563eb; }
+
+.saveToProjectBtn {
+  display: inline-flex;
+  align-items: center;
+  white-space: nowrap;
+  background: #2563eb;
+  color: #fff;
+  border: none;
+  border-radius: 7px;
+  padding: 5px 12px;
+  font-size: 12px;
+  font-weight: 600;
+  cursor: pointer;
+  font-family: inherit;
+  flex-shrink: 0;
+}
+.saveToProjectBtn:hover:not(:disabled) { background: #1d4ed8; }
+.saveToProjectBtn:disabled { background: #9ca3af; cursor: default; }
+
+/* ── Thread Attachments Strip ── */
+.threadAttachmentsStrip {
+  display: flex;
+  align-items: flex-start;
+  gap: 8px;
+  padding: 8px 14px;
+  border-bottom: 1px solid #f3f4f6;
+  background: #fffbeb;
+}
+
+.threadAttachLabel {
+  display: inline-flex;
+  align-items: center;
+  font-size: 11px;
+  font-weight: 600;
+  color: #92400e;
+  white-space: nowrap;
+  padding-top: 2px;
+  flex-shrink: 0;
+}
+
+.threadAttachList {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 5px;
+}
+
+.threadAttachChip {
+  display: inline-flex;
+  align-items: center;
+  background: #fef3c7;
+  border: 1px solid #fde68a;
+  border-radius: 20px;
+  padding: 2px 8px 2px 6px;
+  font-size: 11px;
+  color: #92400e;
+  font-weight: 500;
+}
+
+.threadAttachChipLink {
+  cursor: pointer;
+}
+.threadAttachChipLink:hover {
+  background: #fde68a;
+}
+
+/* ── editSelectInline (project/stakeholder dropdowns inside meta rows) ── */
+.editSelectInline {
+  flex: 1;
+  min-width: 0;
+  border: 1px solid #d1d5db;
+  border-radius: 5px;
+  padding: 3px 7px;
+  font-size: 12px;
+  color: #374151;
+  background: #fff;
+  font-family: inherit;
+  outline: none;
+  cursor: pointer;
+  width: 100%;
+}
+.editSelectInline:focus {
+  border-color: #2563eb;
+  box-shadow: 0 0 0 2px rgba(37, 99, 235, 0.1);
+}
+
+/* ── Task Upload Column ── */
+.taskUploadCol {
+  display: flex;
+  flex-direction: column;
+  gap: 5px;
+  flex: 1;
+  min-width: 0;
+}
+
+.taskAttachChip {
+  display: inline-flex;
+  align-items: center;
+  background: #f0fdf4;
+  border: 1px solid #bbf7d0;
+  border-radius: 20px;
+  padding: 2px 6px 2px 6px;
+  font-size: 11px;
+  color: #166534;
+  font-weight: 500;
+  max-width: 100%;
+}
+
+.taskAttachName {
+  flex: 1;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  margin: 0 4px;
+}
+
+.taskAttachDownload {
+  background: none;
+  border: none;
+  color: #6b7280;
+  cursor: pointer;
+  padding: 0;
+  display: flex;
+  align-items: center;
+  flex-shrink: 0;
+}
+.taskAttachDownload:hover { color: #111827; }
+
+.taskUploadBtn {
+  display: inline-flex;
+  align-items: center;
+  background: #f3f4f6;
+  border: 1px dashed #d1d5db;
+  border-radius: 6px;
+  padding: 4px 10px;
+  font-size: 11.5px;
+  color: #374151;
+  cursor: pointer;
+  font-family: inherit;
+  font-weight: 500;
+  align-self: flex-start;
+}
+.taskUploadBtn:hover:not(:disabled) {
+  background: #e5e7eb;
+  border-color: #9ca3af;
+}
+.taskUploadBtn:disabled { opacity: 0.6; cursor: default; }
+
+.taskUploadHint {
+  font-size: 11px;
+  color: #9ca3af;
+  font-style: italic;
+}
+

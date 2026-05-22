@@ -241,3 +241,38 @@ export const getEmailThread = (threadId) =>
 
 export const extractConfirmItems = (threadId) =>
   axiosInstance.post(`/threads/${threadId}/extract`).then((r) => r.data);
+
+// ── Stakeholders ──────────────────────────────────────────────────────────────
+
+export const getStakeholders = (discipline = null) =>
+  axiosInstance
+    .get(`/stakeholders${discipline ? `?discipline=${encodeURIComponent(discipline)}` : ""}`)
+    .then((r) => r.data);
+
+// ── Project Review Items & Tasks ──────────────────────────────────────────────
+
+export const createProjectReviewItem = (projectId, body) =>
+  axiosInstance.post(`/projects/${projectId}/review-items`, body).then((r) => r.data);
+
+export const createTask = (projectId, reviewItemId, body) =>
+  axiosInstance
+    .post(`/projects/${projectId}/review-items/${reviewItemId}/tasks`, body)
+    .then((r) => r.data);
+
+export const updateTask = (projectId, reviewItemId, taskId, body) =>
+  axiosInstance
+    .put(`/projects/${projectId}/review-items/${reviewItemId}/tasks/${taskId}`, body)
+    .then((r) => r.data);
+
+export const uploadTaskAttachment = (projectId, taskId, file) => {
+  const form = new FormData();
+  form.append("file", file);
+  return axiosInstance
+    .post(`/projects/${projectId}/tasks/${taskId}/attachments`, form, {
+      headers: { "Content-Type": "multipart/form-data" },
+    })
+    .then((r) => r.data);
+};
+
+export const getTaskAttachments = (projectId, taskId) =>
+  axiosInstance.get(`/projects/${projectId}/tasks/${taskId}/attachments`).then((r) => r.data);
