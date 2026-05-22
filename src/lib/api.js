@@ -276,3 +276,58 @@ export const uploadTaskAttachment = (projectId, taskId, file) => {
 
 export const getTaskAttachments = (projectId, taskId) =>
   axiosInstance.get(`/projects/${projectId}/tasks/${taskId}/attachments`).then((r) => r.data);
+
+// ── Email Actions ─────────────────────────────────────────────────────────────
+
+export const replyToEmail = (emailId, body) =>
+  axiosInstance.post(`/emails/${emailId}/reply`, body).then((r) => r.data);
+
+export const forwardEmail = (emailId, body) =>
+  axiosInstance.post(`/emails/${emailId}/forward`, body).then((r) => r.data);
+
+export const starEmail = (emailId) =>
+  axiosInstance.post(`/emails/${emailId}/star`).then((r) => r.data);
+
+export const archiveEmail = (emailId) =>
+  axiosInstance.post(`/emails/${emailId}/archive`).then((r) => r.data);
+
+// ── AI Draft Extractions ──────────────────────────────────────────────────────
+
+export const saveDraftExtraction = (threadId, body) =>
+  axiosInstance.post(`/threads/${threadId}/save-draft`, body).then((r) => r.data);
+
+export const getThreadDraft = (threadId) =>
+  axiosInstance.get(`/threads/${threadId}/draft`).then((r) => r.data);
+
+export const confirmExtraction = (threadId, body) =>
+  axiosInstance.post(`/threads/${threadId}/extract/confirm`, body).then((r) => r.data);
+
+// ── Project Detail ────────────────────────────────────────────────────────────
+
+export const getProject = (projectId) =>
+  axiosInstance.get(`/projects/${projectId}`).then((r) => r.data);
+
+export const getProjectReviewItems = (projectId, params = {}) => {
+  const qs = new URLSearchParams(
+    Object.fromEntries(Object.entries(params).filter(([, v]) => v != null))
+  ).toString();
+  return axiosInstance
+    .get(`/projects/${projectId}/review-items${qs ? `?${qs}` : ""}`)
+    .then((r) => r.data);
+};
+
+export const getProjectUpcomingDeadlines = (projectId, limit = 5) =>
+  axiosInstance
+    .get(`/projects/${projectId}/upcoming-deadlines?limit=${limit}`)
+    .then((r) => r.data);
+
+export const getProjectDecisions = (projectId) =>
+  axiosInstance.get(`/projects/${projectId}/decisions`).then((r) => r.data);
+
+export const getProjectStakeholders = (projectId) =>
+  axiosInstance.get(`/stakeholders/projects/${projectId}`).then((r) => r.data);
+
+export const updateProjectTaskStatus = (projectId, taskId, status) =>
+  axiosInstance
+    .patch(`/projects/${projectId}/tasks/${taskId}/status`, { status })
+    .then((r) => r.data);

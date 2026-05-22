@@ -589,6 +589,9 @@
   color: #6b7280;
   line-height: 1.45;
   margin-bottom: 8px;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
 }
 
 .cardFooter {
@@ -815,6 +818,113 @@
   font-weight: 500;
 }
 .inviteRow:hover { text-decoration: underline; }
+
+/* ── Add Review Item Modal ── */
+.modalOverlay {
+  position: fixed;
+  inset: 0;
+  background: rgba(0,0,0,0.35);
+  z-index: 100;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.addItemModal {
+  background: #fff;
+  border-radius: 12px;
+  width: 480px;
+  max-width: calc(100vw - 32px);
+  box-shadow: 0 8px 32px rgba(0,0,0,0.18);
+  overflow: hidden;
+  display: flex;
+  flex-direction: column;
+}
+
+.modalHeader {
+  display: flex;
+  align-items: center;
+  padding: 16px 20px 14px;
+  border-bottom: 1px solid #e5e7eb;
+}
+
+.modalTitle {
+  font-size: 14px;
+  font-weight: 700;
+  color: #111827;
+  flex: 1;
+}
+
+.modalBody {
+  padding: 16px 20px;
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+}
+
+.formGroup {
+  display: flex;
+  flex-direction: column;
+  gap: 5px;
+}
+
+.formLabel {
+  font-size: 12px;
+  font-weight: 600;
+  color: #374151;
+}
+
+.formInput {
+  padding: 8px 10px;
+  border: 1px solid #e5e7eb;
+  border-radius: 7px;
+  font-size: 13px;
+  font-family: inherit;
+  color: #111827;
+  outline: none;
+  transition: border-color 0.15s;
+}
+.formInput:focus { border-color: #2563eb; }
+
+.formTextarea {
+  padding: 8px 10px;
+  border: 1px solid #e5e7eb;
+  border-radius: 7px;
+  font-size: 13px;
+  font-family: inherit;
+  color: #111827;
+  outline: none;
+  resize: vertical;
+  transition: border-color 0.15s;
+}
+.formTextarea:focus { border-color: #2563eb; }
+
+.formSelect {
+  padding: 8px 10px;
+  border: 1px solid #e5e7eb;
+  border-radius: 7px;
+  font-size: 13px;
+  font-family: inherit;
+  color: #111827;
+  outline: none;
+  background: #fff;
+  cursor: pointer;
+  transition: border-color 0.15s;
+}
+.formSelect:focus { border-color: #2563eb; }
+
+.formRow {
+  display: flex;
+  gap: 12px;
+}
+
+.modalFooter {
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 8px;
+  padding-top: 4px;
+}
 
 /* ── Responsive ── */
 @media (max-width: 1200px) {
