@@ -163,10 +163,10 @@ export const listLabels = (accountId) =>
 
 // ── Attachments ───────────────────────────────────────────────────────────────
 
-export const downloadAttachment = async (attachmentId, accountId) => {
+export const downloadAttachment = async (attachmentId) => {
   const token = getToken();
   const res = await axios.get(
-    `${BASE_URL}/attachments/${attachmentId}/download?account_id=${accountId}`,
+    `${BASE_URL}/attachments/${attachmentId}/download`,
     {
       responseType: "blob",
       headers: {
@@ -301,6 +301,9 @@ export const getThreadDraft = (threadId) =>
 
 export const confirmExtraction = (threadId, body) =>
   axiosInstance.post(`/threads/${threadId}/extract/confirm`, body).then((r) => r.data);
+
+export const getThreadReviewItems = (threadId) =>
+  axiosInstance.get(`/threads/${threadId}/review-items`).then((r) => r.data);
 
 // ── Project Detail ────────────────────────────────────────────────────────────
 

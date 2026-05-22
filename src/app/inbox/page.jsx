@@ -38,6 +38,11 @@ import {
   RiStarFill,
   RiSaveLine,
   RiDraftLine,
+  RiBuildingLine,
+  RiFlashlightLine,
+  RiHammerLine,
+  RiShieldLine,
+  RiCalendarLine,
 } from "react-icons/ri";
 import Sidebar from "../../components/Sidebar";
 import { useAuth } from "../../context/AuthContext";
@@ -72,6 +77,8 @@ import {
   archiveEmail,
   saveDraftExtraction,
   confirmExtraction,
+  getThreadDraft,
+  getThreadReviewItems,
 } from "../../lib/api";
 import "./inbox.css";
 
@@ -165,6 +172,30 @@ const DISCIPLINE_NORMALIZE = {
 const normalizeDiscipline = (d) =>
   d ? (DISCIPLINE_NORMALIZE[d.toLowerCase()] ?? "other") : "other";
 
+const DISC_ICON = {
+  architect:  RiBuildingLine,
+  engineer:   RiFlashlightLine,
+  contractor: RiHammerLine,
+  consultant: RiShieldLine,
+  client:     RiAlertLine,
+  other:      RiAlertLine,
+};
+
+const RI_STATUS_LABEL = {
+  new:                 "Open",
+  in_review:           "In Review",
+  needs_decision:      "Needs Decision",
+  waiting_on_external: "Waiting",
+  approved_closed:     "Approved",
+};
+
+const TASK_STATUS_LABEL = {
+  open:        "Open",
+  in_progress: "In Progress",
+  blocked:     "Blocked",
+  done:        "Done",
+};
+
 const STATUS_CLASS = {
   OPEN: "reviewStatusOpen",
   IN_REVIEW: "reviewStatusInReview",
@@ -210,9 +241,8 @@ export default function InboxPage() {
   const [syncingAccount, setSyncingAccount] = useState(false);
   const [gmailError, setGmailError] = useState(false);
   const [emails, setEmails] = useState([]);
-  const [editingItemId, setEditingItemId] = useState(null);
-  const [editDraft, setEditDraft] = useState({});
-  const [newAttachmentText, setNewAttachmentText] = useState("");
+  const [editingRI, setEditingRI] = useState(null);   // { riId, draft }
+  const [editingTask, setEditingTask] = useState(null); // { riId, taskId, draft }
   const [fetchingEmails, setFetchingEmails] = useState(true);
   const [activeEmailId, setActiveEmailId] = useState(null);
 
@@ -235,6 +265,7 @@ export default function InboxPage() {
   const [archivingThread, setArchivingThread] = useState(false);
   // draft flow
   const [draftSaving, setDraftSaving] = useState(false);
+  const [openMenuId, setOpenMenuId] = useState(null);
 
   const searchTimeout = useRef(null);
   const initRan = useRef(false);
@@ -418,34 +449,48 @@ export default function InboxPage() {
     try {
       const res = await extractConfirmItems(threadId);
       const raw = res.data || {};
-      const tasks = Array.isArray(raw.tasks) ? raw.tasks : [];
-      const discipline = normalizeDiscipline(raw.review_item?.discipline);
-      const projectName = raw.project_name || raw.suggested_project?.name || null;
-      const items = tasks.map((t, i) => ({
+
+      // Normalise AI output → always an array of review items
+      let rawRIs = Array.isArray(raw.review_items) ? raw.review_items : [];
+      if (rawRIs.length === 0 && raw.review_item) {
+        rawRIs = [{ ...raw.review_item, tasks: raw.tasks || [] }];
+      }
+
+      const reviewItems = rawRIs.map((ri, i) => ({
         id: i,
-        title: t.title,
-        discipline: discipline,
-        status: "OPEN",
-        owner_name: t.assignee_name || null,
-        due_date: t.due_date || null,
-        notes: t.description || null,
-        project_name: projectName,
-        referenced_attachments: Array.isArray(t.referenced_attachments) ? t.referenced_attachments : [],
+        ri_status: "new",
+        title: ri.title || "",
+        description: ri.description || "",
+        discipline: normalizeDiscipline(ri.discipline),
+        priority: ri.priority || "medium",
+        due_date: ri.due_date || null,
+        tasks: (Array.isArray(ri.tasks) ? ri.tasks : []).map((t, j) => ({
+          id: `${i}-${j}`,
+          title: t.title || "",
+          description: t.description || "",
+          status: t.status || "open",
+          owner_name: t.assignee_name || null,
+          assignee_email: t.assignee_email || null,
+          stakeholder_id: null,
+          due_date: t.due_date || null,
+          referenced_attachments: Array.isArray(t.referenced_attachments) ? t.referenced_attachments : [],
+        })),
       }));
+
       const suggested = raw.suggested_project || null;
+      const projectName = raw.project_name || suggested?.name || null;
+
       setActiveThread((t) => ({
         ...t,
-        review_items: items,
-        ai_review_item: raw.review_item || null,
+        review_items: reviewItems,
         ai_attachments: Array.isArray(raw.attachments) ? raw.attachments : [],
         ai_suggested_project: suggested,
         draft_status: "saving",
       }));
 
-      // Auto-select the suggested project in the project dropdown
+      // Auto-select the matching project
       if (raw.project_id) {
-        const matched = projects.find((p) => p.id === raw.project_id);
-        if (matched) setSelectedProjectId(raw.project_id);
+        if (projects.find((p) => p.id === raw.project_id)) setSelectedProjectId(raw.project_id);
       } else if (projectName) {
         const matched = projects.find(
           (p) => p.name.trim().toLowerCase() === projectName.trim().toLowerCase()
@@ -461,12 +506,19 @@ export default function InboxPage() {
           location: suggested.location || "",
         });
       }
+
       // Save extraction as draft in the background
       setDraftSaving(true);
       try {
         const draftRes = await saveDraftExtraction(threadId, {
-          review_item: raw.review_item || null,
-          tasks: raw.tasks || [],
+          review_items: reviewItems.map((ri) => ({
+            title: ri.title,
+            description: ri.description,
+            discipline: ri.discipline,
+            priority: ri.priority,
+            due_date: ri.due_date,
+            tasks: ri.tasks,
+          })),
           suggested_project: suggested,
           attachments: Array.isArray(raw.attachments) ? raw.attachments : [],
         });
@@ -484,73 +536,92 @@ export default function InboxPage() {
     }
   };
 
-  // ── Update review item status ──
-  const handleStatusChange = async (item, newStatus) => {
-    if (!activeAccount) return;
-    try {
-      await updateReviewItem(item.id, activeAccount.id, { status: newStatus });
-      setActiveThread((t) => ({
-        ...t,
-        review_items: t.review_items.map((r) =>
-          r.id === item.id ? { ...r, status: newStatus } : r
-        ),
-      }));
-    } catch {/* ignore */ }
-  };
-
   // ── Edit review item ──
-  const handleEditReviewItem = (item, idx) => {
-    setEditingItemId(item.id ?? idx);
-    setEditDraft({ ...item });
-    setNewAttachmentText("");
-  };
-
-  const handleSaveEditItem = () => {
+  const handleEditRI = (ri) => setEditingRI({ riId: ri.id, draft: { ...ri } });
+  const handleSaveRI = () => {
+    if (!editingRI) return;
     setActiveThread((t) => ({
       ...t,
-      review_items: t.review_items.map((r, i) =>
-        (r.id ?? i) === editingItemId ? { ...editDraft } : r
+      review_items: t.review_items.map((r) =>
+        r.id === editingRI.riId ? { ...r, ...editingRI.draft, tasks: r.tasks } : r
       ),
     }));
-    setEditingItemId(null);
-    setEditDraft({});
+    setEditingRI(null);
   };
 
-  const handleCancelEdit = () => {
-    setEditingItemId(null);
-    setEditDraft({});
+  // ── Edit task ──
+  const handleEditTask = (riId, task) =>
+    setEditingTask({ riId, taskId: task.id, draft: { ...task } });
+  const handleSaveTask = () => {
+    if (!editingTask) return;
+    setActiveThread((t) => ({
+      ...t,
+      review_items: t.review_items.map((r) =>
+        r.id === editingTask.riId
+          ? { ...r, tasks: r.tasks.map((tk) => tk.id === editingTask.taskId ? { ...editingTask.draft } : tk) }
+          : r
+      ),
+    }));
+    setEditingTask(null);
   };
 
-  const handleDraftChange = (field, value) => {
-    setEditDraft((d) => ({ ...d, [field]: value }));
-  };
-
-  const handleRemoveAttachment = (filename) => {
-    setEditDraft((d) => ({
-      ...d,
-      referenced_attachments: (d.referenced_attachments || []).filter((a) => a !== filename),
+  // ── Delete review item / task ──
+  const handleDeleteRI = (riId) => {
+    setActiveThread((t) => ({
+      ...t,
+      review_items: t.review_items.filter((r) => r.id !== riId),
     }));
   };
 
-  const handleAddAttachment = () => {
-    if (!newAttachmentText.trim()) return;
-    setEditDraft((d) => ({
-      ...d,
-      referenced_attachments: [...(d.referenced_attachments || []), newAttachmentText.trim()],
+  const handleDeleteTask = (riId, taskId) => {
+    setActiveThread((t) => ({
+      ...t,
+      review_items: t.review_items.map((r) =>
+        r.id === riId ? { ...r, tasks: r.tasks.filter((tk) => tk.id !== taskId) } : r
+      ),
     }));
-    setNewAttachmentText("");
   };
 
-  // ── Delete review item ──
-  const handleDeleteReviewItem = async (item) => {
-    if (!activeAccount) return;
-    try {
-      await deleteReviewItem(item.id, activeAccount.id);
-      setActiveThread((t) => ({
-        ...t,
-        review_items: t.review_items.filter((r) => r.id !== item.id),
-      }));
-    } catch {/* ignore */ }
+  const handleTaskStatusChange = (riId, taskId, status) => {
+    setActiveThread((t) => ({
+      ...t,
+      review_items: t.review_items.map((r) =>
+        r.id === riId
+          ? { ...r, tasks: r.tasks.map((tk) => tk.id === taskId ? { ...tk, status } : tk) }
+          : r
+      ),
+    }));
+  };
+
+  const handleRIStatusChange = (riId, status) => {
+    setActiveThread((t) => ({
+      ...t,
+      review_items: t.review_items.map((r) =>
+        r.id === riId ? { ...r, ri_status: status } : r
+      ),
+    }));
+  };
+
+  // ── Add task to a review item ──
+  const handleAddTask = (riId) => {
+    const newTask = {
+      id: `${riId}-${Date.now()}`,
+      title: "New task",
+      description: "",
+      status: "open",
+      owner_name: null,
+      assignee_email: null,
+      stakeholder_id: null,
+      due_date: null,
+      referenced_attachments: [],
+    };
+    setActiveThread((t) => ({
+      ...t,
+      review_items: t.review_items.map((r) =>
+        r.id === riId ? { ...r, tasks: [...r.tasks, newTask] } : r
+      ),
+    }));
+    setEditingTask({ riId, taskId: newTask.id, draft: { ...newTask } });
   };
 
   // ── Create new project inline ──
@@ -587,55 +658,47 @@ export default function InboxPage() {
     }
   };
 
-  // ── Save all tasks to backend ──
+  // ── Save all review items + tasks to backend ──
   const handleSaveAllTasks = async () => {
     if (!selectedProjectId || reviewItems.length === 0) return;
     setSavingTasks(true);
     const threadId = activeThread?.thread_id || activeThread?.id;
     try {
-      const aiRI = activeThread?.ai_review_item || {};
       const res = await confirmExtraction(threadId, {
         project_id: Number(selectedProjectId),
-        review_item: {
-          title: aiRI.title || activeThread?.subject || "Email Review Item",
-          description: aiRI.description || null,
-          discipline: normalizeDiscipline(aiRI.discipline) || "other",
-          priority: ["high", "medium", "low"].includes(aiRI.priority) ? aiRI.priority : "medium",
-          due_date: aiRI.due_date || null,
-        },
-        tasks: reviewItems.map((item) => {
-          const stk = stakeholders.find((s) => s.id === item.stakeholder_id);
+        review_items: reviewItems.map((ri) => {
           return {
-            title: item.title,
-            description: item.notes || null,
-            assignee_email: stk?.email || null,
-            assignee_name: item.owner_name || stk?.name || null,
-            due_date: item.due_date || null,
-            status: "open",
-            referenced_attachments: item.referenced_attachments || [],
+            title: ri.title || "Email Review Item",
+            description: ri.description || null,
+            discipline: normalizeDiscipline(ri.discipline) || "other",
+            priority: ["high", "medium", "low"].includes(ri.priority) ? ri.priority : "medium",
+            due_date: ri.due_date || null,
+            tasks: (ri.tasks || []).map((task) => {
+              const stk = stakeholders.find((s) => s.id === task.stakeholder_id);
+              return {
+                title: task.title,
+                description: task.description || null,
+                assignee_email: stk?.email || task.assignee_email || null,
+                assignee_name: task.owner_name || stk?.name || null,
+                due_date: task.due_date || null,
+                status: task.status || "open",
+                referenced_attachments: task.referenced_attachments || [],
+              };
+            }),
           };
         }),
         draft_id: activeThread?.draft_id || null,
       });
       const data = res.data || {};
-      const reviewItemId = data.review_item_id;
-      const taskIds = data.task_ids || [];
-      const savedItems = reviewItems.map((item, i) => ({
-        ...item,
-        backend_task_id: taskIds[i] || null,
-        backend_review_item_id: reviewItemId,
-        task_attachments: [],
-        is_saved: true,
-      }));
       setActiveThread((t) => ({
         ...t,
-        review_items: savedItems,
+        review_items: t.review_items.map((ri) => ({ ...ri, is_saved: true })),
         draft_status: "confirmed",
       }));
-      toast.success("Tasks saved to project");
+      toast.success(`Saved ${data.review_items_created || reviewItems.length} review item(s) to project`);
     } catch (err) {
       console.error("Save failed", err);
-      toast.error("Failed to save tasks");
+      toast.error("Failed to save to project");
     } finally {
       setSavingTasks(false);
     }
@@ -752,7 +815,6 @@ export default function InboxPage() {
   const openEmail = async (email) => {
     if (loadingThread) return;
     setActiveEmailId(email.id);
-    // Show content immediately using list-item data, no blank flash
     setActiveThread({
       id: email.id,
       thread_id: email.thread_id,
@@ -762,24 +824,83 @@ export default function InboxPage() {
       review_items: [],
       ai_processed: false,
     });
-    // Then fetch full thread to get all messages
     setLoadingThread(true);
     try {
-      const res = await getEmailThread(email.thread_id);
-      const rawMsgs = Array.isArray(res.data) ? res.data : res.data ? [res.data] : null;
-      if (rawMsgs && rawMsgs.length > 0) {
-        setActiveThread({
-          id: email.id,
-          thread_id: email.thread_id,
-          subject: rawMsgs[0].subject || email.subject,
-          _isEmail: true,
-          messages: rawMsgs.map(toMessage),
-          review_items: [],
-          ai_processed: false,
-        });
+      // Fetch thread messages and confirmed tasks in parallel
+      const [threadRes, reviewRes] = await Promise.allSettled([
+        getEmailThread(email.thread_id),
+        getThreadReviewItems(email.thread_id),
+      ]);
+
+      // Parse messages
+      let msgs = null;
+      if (threadRes.status === "fulfilled") {
+        const raw = threadRes.value.data;
+        const arr = Array.isArray(raw) ? raw : raw ? [raw] : null;
+        if (arr?.length > 0) msgs = arr;
       }
+
+      // Check for confirmed review items/tasks
+      let reviewItems = [];
+      let confirmedProjectId = null;
+      let draftStatus = null;
+      let draftId = null;
+
+      const confirmedData = reviewRes.status === "fulfilled" ? reviewRes.value.data : null;
+      if (confirmedData?.review_items?.length > 0) {
+        reviewItems = confirmedData.review_items;
+        confirmedProjectId = confirmedData.project_id;
+        draftStatus = "confirmed";
+      } else {
+        // No confirmed items — try to restore draft
+        try {
+          const draftRes = await getThreadDraft(email.thread_id);
+          const ed = draftRes.data?.extraction_data || {};
+          const rawRIs = Array.isArray(ed.review_items) ? ed.review_items : [];
+          if (rawRIs.length > 0) {
+            reviewItems = rawRIs.map((ri, i) => ({
+              id: i,
+              ri_status: "new",
+              title: ri.title || "",
+              description: ri.description || "",
+              discipline: normalizeDiscipline(ri.discipline),
+              priority: ri.priority || "medium",
+              due_date: ri.due_date || null,
+              tasks: (ri.tasks || []).map((t, j) => ({
+                id: `${i}-${j}`,
+                title: t.title || "",
+                description: t.description || "",
+                status: t.status || "open",
+                owner_name: t.assignee_name || null,
+                assignee_email: t.assignee_email || null,
+                stakeholder_id: null,
+                due_date: t.due_date || null,
+                referenced_attachments: Array.isArray(t.referenced_attachments) ? t.referenced_attachments : [],
+              })),
+            }));
+            draftId = draftRes.data.draft_id;
+            draftStatus = "draft";
+          }
+        } catch {
+          // no draft — empty panel is correct
+        }
+      }
+
+      setActiveThread({
+        id: email.id,
+        thread_id: email.thread_id,
+        subject: msgs ? (msgs[0].subject || email.subject) : email.subject,
+        _isEmail: true,
+        messages: msgs ? msgs.map(toMessage) : [toMessage(email)],
+        review_items: reviewItems,
+        ai_processed: false,
+        draft_status: draftStatus,
+        draft_id: draftId,
+      });
+
+      if (confirmedProjectId) setSelectedProjectId(confirmedProjectId);
     } catch {
-      // keep the content already shown from list data
+      // keep the partial state already shown
     } finally {
       setLoadingThread(false);
     }
@@ -829,6 +950,15 @@ export default function InboxPage() {
   const mainMessage = activeThread?.messages?.[0];
   const mainFrom = mainMessage ? parseFrom(mainMessage.from_address) : null;
   const reviewItems = activeThread?.review_items || [];
+  const allTasks = reviewItems.flatMap((ri) =>
+    ri.tasks.map((t) => ({
+      task: t,
+      riId: ri.id,
+      riTitle: ri.title,
+      riDiscipline: ri.discipline,
+      riIsSaved: ri.is_saved,
+    }))
+  );
 
   // Discipline options for task assignment: stakeholder-only disciplines (no client)
   const disciplineOptions = stakeholders.length > 0
@@ -1139,9 +1269,7 @@ export default function InboxPage() {
                             </div>
                             <button
                               className="downloadBtn"
-                              onClick={() =>
-                                downloadAttachment(att.id, activeAccount.id)
-                              }
+                              onClick={() => downloadAttachment(att.id)}
                             >
                               <RiDownload2Line className="iconSize14" />
                             </button>
@@ -1290,8 +1418,8 @@ export default function InboxPage() {
         <div className="rightPanelHeader">
           <div className="rightPanelTitle">
             <RiFilter3Line className="iconSize15" />
-            <span>Extracted Review Items</span>
-            <span className="reviewCount">{reviewItems.length}</span>
+            <span>Extracted Tasks</span>
+            <span className="reviewCount">{allTasks.length}</span>
           </div>
           <div className="extractBtnRow">
             {activeThread?.draft_status === "draft" && (
@@ -1364,11 +1492,11 @@ export default function InboxPage() {
             <button
               className="saveToProjectBtn"
               onClick={handleSaveAllTasks}
-              disabled={!selectedProjectId || savingTasks || (reviewItems.length > 0 && reviewItems.every((r) => r.backend_task_id))}
+              disabled={!selectedProjectId || savingTasks || (reviewItems.length > 0 && reviewItems.every((r) => r.is_saved))}
             >
               {savingTasks ? (
                 <><RiLoader4Line className="spinnerIcon iconSize13" style={{ marginRight: 4 }} />Saving…</>
-              ) : reviewItems.length > 0 && reviewItems.every((r) => r.backend_task_id) ? (
+              ) : reviewItems.length > 0 && reviewItems.every((r) => r.is_saved) ? (
                 <><RiCheckboxCircleLine className="iconSize13" style={{ marginRight: 4 }} />Saved</>
               ) : "Save to Project"}
             </button>
@@ -1463,108 +1591,80 @@ export default function InboxPage() {
         </div>
 
         <div className="reviewItems">
-          {reviewItems.length === 0 && !extracting ? (
+          {extracting ? (
+            <div className="listLoader">
+              <RiLoader4Line className="spinnerIcon iconSize18" />
+              <span>AI is extracting…</span>
+            </div>
+          ) : allTasks.length === 0 ? (
             <div className="emptyReview">
-              <p>No review items yet.</p>
+              <p>No tasks yet.</p>
               {activeThread && (
                 <button className="extractBtn" onClick={handleExtract}>
                   Run AI extraction
                 </button>
               )}
             </div>
-          ) : extracting ? (
-            <div className="listLoader">
-              <RiLoader4Line className="spinnerIcon iconSize18" />
-              <span>AI is extracting…</span>
-            </div>
           ) : (
-            reviewItems.map((item, idx) => {
-              const isEditing = editingItemId === (item.id ?? idx);
-              const tagClass = DISCIPLINE_CLASS[item.discipline] || "reviewTagArch";
-              const statusClass = STATUS_CLASS[item.status] || "reviewStatusOpen";
+            allTasks.map(({ task, riId, riTitle, riDiscipline, riIsSaved }) => {
+              const isEditingThisTask = editingTask?.riId === riId && editingTask?.taskId === task.id;
+              const DiscIcon = DISC_ICON[riDiscipline] || RiAlertLine;
+              const taskStatus = task.status || "open";
+              const isMenuOpen = openMenuId === task.id;
+              const evidence = task.referenced_attachments?.[0] || null;
+              const ownerInitials = task.owner_name
+                ? task.owner_name.split(" ").map((w) => w[0]).join("").slice(0, 2).toUpperCase()
+                : null;
               return (
-                <div key={item.id ?? idx} className="reviewCard">
-                  <div className="reviewCardHeader">
-                    {isEditing ? (
+                <div key={task.id} className="extractCard">
+                  {isEditingThisTask ? (
+                    <div className="extractEditForm">
                       <input
                         className="editTitleInput"
-                        value={editDraft.title || ""}
-                        onChange={(e) => handleDraftChange("title", e.target.value)}
+                        value={editingTask.draft.title || ""}
+                        onChange={(e) => setEditingTask((s) => ({ ...s, draft: { ...s.draft, title: e.target.value } }))}
+                        placeholder="Task title…"
                       />
-                    ) : (
-                      <span className="reviewCardTitle">{item.title}</span>
-                    )}
-                    {isEditing ? (
-                      <div className="editCardActions">
-                        <button className="editCancelBtn" onClick={handleCancelEdit}>Cancel</button>
-                        <button className="editSaveBtn" onClick={handleSaveEditItem}>Save</button>
-                      </div>
-                    ) : (
-                      <>
-                        <button className="iconBtn" onClick={() => handleEditReviewItem(item, idx)}>
-                          <RiEditLine className="iconSize14" />
-                        </button>
-                        <button className="iconBtn" onClick={() => handleDeleteReviewItem(item)}>
-                          <RiDeleteBin7Line className="iconSize14" />
-                        </button>
-                      </>
-                    )}
-                  </div>
-
-                  <div className="reviewCardMeta">
-                    <div className="reviewTagRow">
-                      {isEditing ? (
-                        <select
-                          className="editSelect"
-                          value={editDraft.discipline || ""}
-                          onChange={(e) => handleDraftChange("discipline", e.target.value)}
-                        >
-                          <option value="">Select discipline…</option>
-                          {disciplineOptions.map((d) => (
-                            <option key={d} value={d}>
-                              {DISCIPLINE_LABEL[d] || d}
-                            </option>
-                          ))}
-                        </select>
-                      ) : (
-                        <span className={`reviewTag ${tagClass}`}>
-                          <RiAlertLine className="iconMr3 iconSize11" />
-                          {DISCIPLINE_LABEL[item.discipline] || item.discipline || "Other"}
-                        </span>
-                      )}
-                      <select
-                        className={`reviewStatus ${isEditing ? "reviewStatusEditing" : statusClass}`}
-                        value={isEditing ? (editDraft.status || "OPEN") : item.status}
-                        onChange={(e) =>
-                          isEditing
-                            ? handleDraftChange("status", e.target.value)
-                            : handleStatusChange(item, e.target.value)
-                        }
-                      >
-                        {Object.entries(STATUS_LABEL).map(([v, l]) => (
-                          <option key={v} value={v}>{l}</option>
-                        ))}
-                      </select>
-                    </div>
-
-                    <div className="reviewMetaRow mt-2">
-                      <span className="reviewMetaLabel me-3">Stakeholder</span>
-                      {isEditing ? (
-                        <div className="stakeholderEditRow">
+                      <textarea
+                        className="editDescTextarea"
+                        value={editingTask.draft.description || ""}
+                        onChange={(e) => setEditingTask((s) => ({ ...s, draft: { ...s.draft, description: e.target.value } }))}
+                        placeholder="What needs to be done…"
+                        rows={2}
+                      />
+                      <div className="editFieldRows">
+                        <div className="editFieldRow">
+                          <span className="editFieldLabel">Status</span>
                           <select
-                            className="editSelectInline"
-                            value={editDraft.stakeholder_id || ""}
+                            className="editFieldControl"
+                            value={editingTask.draft.status || "open"}
+                            onChange={(e) => setEditingTask((s) => ({ ...s, draft: { ...s.draft, status: e.target.value } }))}
+                          >
+                            {Object.entries(TASK_STATUS_LABEL).map(([val, label]) => (
+                              <option key={val} value={val}>{label}</option>
+                            ))}
+                          </select>
+                        </div>
+                        <div className="editFieldRow">
+                          <span className="editFieldLabel">Assignee</span>
+                          <select
+                            className="editFieldControl"
+                            value={editingTask.draft.stakeholder_id || ""}
                             onChange={(e) => {
                               const sid = e.target.value ? Number(e.target.value) : null;
                               const stk = stakeholders.find((s) => s.id === sid);
-                              handleDraftChange("stakeholder_id", sid);
-                              handleDraftChange("owner_name", stk?.name || "");
-                              if (stk?.discipline) {
-                                handleDraftChange("discipline", normalizeDiscipline(stk.discipline));
-                              }
+                              setEditingTask((s) => ({
+                                ...s,
+                                draft: {
+                                  ...s.draft,
+                                  stakeholder_id: sid,
+                                  owner_name: stk?.name || s.draft.owner_name,
+                                  assignee_email: stk?.email || s.draft.assignee_email,
+                                },
+                              }));
                             }}
                           >
-                            <option value="">Select stakeholder…</option>
+                            <option value="">No assignee</option>
                             {stakeholders
                               .filter((s) => normalizeDiscipline(s.discipline) !== "client")
                               .map((s) => (
@@ -1573,156 +1673,138 @@ export default function InboxPage() {
                                 </option>
                               ))}
                           </select>
-                          <button
-                            className="refreshIconBtn"
-                            onClick={handleRefreshStakeholders}
-                            disabled={refreshingStakeholders}
-                            title="Refresh stakeholders"
-                          >
-                            <RiRefreshLine className={`iconSize12 ${refreshingStakeholders ? "spinning" : ""}`} />
-                          </button>
                         </div>
-                      ) : (
-                        <span className="reviewMetaValue">
-                          {item.owner_name ? (
-                            <>
-                              <span className="ownerInitialsBadge">
-                                {item.owner_name.slice(0, 2).toUpperCase()}
-                              </span>
-                              {item.owner_name}
-                            </>
-                          ) : <span className="reviewMetaNone">-</span>}
-                        </span>
-                      )}
-                    </div>
-
-                    <div className="reviewMetaRow">
-                      <span className="reviewMetaLabel me-3">Due Date</span>
-                      {isEditing ? (
-                        <input
-                          type="date"
-                          className="editInputInline"
-                          value={editDraft.due_date || ""}
-                          onChange={(e) => handleDraftChange("due_date", e.target.value)}
-                        />
-                      ) : (
-                        <span className="reviewMetaValue">
-                          {item.due_date ? (
-                            <>
-                              <RiTimeLine className="iconMr4 iconSize13" />
-                              {formatDate(item.due_date)}
-                            </>
-                          ) : <span className="reviewMetaNone">-</span>}
-                        </span>
-                      )}
-                    </div>
-
-                    <div className="reviewMetaRow">
-                      <span className="reviewMetaLabel me-3">Evidence</span>
-                      {isEditing ? (
-                        <input
-                          className="editInputInline"
-                          value={editDraft.evidence_filename || ""}
-                          onChange={(e) => handleDraftChange("evidence_filename", e.target.value)}
-                          placeholder="filename…"
-                        />
-                      ) : (
-                        <span className="reviewMetaValue">
-                          {item.evidence_filename ? (
-                            <>
-                              <RiAttachment2 className="iconMr4 iconSize13" />
-                              <span className="evidenceLink">{item.evidence_filename}</span>
-                              <RiExternalLinkLine className="iconMl4 iconSize12" />
-                            </>
-                          ) : <span className="reviewMetaNone">-</span>}
-                        </span>
-                      )}
-                    </div>
-
-                    <div className="reviewMetaRow" style={{ alignItems: "flex-start" }}>
-                      <span className="reviewMetaLabel me-3" style={{ paddingTop: 3 }}>Ref. Files</span>
-                      {isEditing ? (
-                        <div className="editAttachmentsCol">
-                          <div className="editAttachChips">
-                            {(editDraft.referenced_attachments || []).map((att, i) => (
-                              <span key={i} className="attachChipEdit">
-                                <RiAttachment2 className="iconSize11" style={{ marginRight: 3 }} />
-                                {att}
-                                <button className="attachChipRemove" onClick={() => handleRemoveAttachment(att)}>×</button>
-                              </span>
-                            ))}
-                          </div>
-                          <div className="addAttachRow">
-                            <input
-                              className="editInputSm"
-                              value={newAttachmentText}
-                              onChange={(e) => setNewAttachmentText(e.target.value)}
-                              placeholder="add filename…"
-                              onKeyDown={(e) => { if (e.key === "Enter") handleAddAttachment(); }}
-                            />
-                            <button className="addAttachBtn" onClick={handleAddAttachment}>Add</button>
-                          </div>
+                        <div className="editFieldRow">
+                          <span className="editFieldLabel">Due Date</span>
+                          <input
+                            type="date"
+                            className="editFieldControl"
+                            value={editingTask.draft.due_date || ""}
+                            onChange={(e) => setEditingTask((s) => ({ ...s, draft: { ...s.draft, due_date: e.target.value } }))}
+                          />
                         </div>
-                      ) : (
-                        <div className="attachChipList">
-                          {item.referenced_attachments?.length > 0 ? (
-                            item.referenced_attachments.map((att, i) => (
-                              <span key={i} className="attachChip">
-                                <RiAttachment2 className="iconMr3 iconSize11" />
-                                {att}
-                              </span>
-                            ))
-                          ) : <span className="reviewMetaNone">-</span>}
+                        <div className="editFieldRow">
+                          <span className="editFieldLabel">Reference</span>
+                          <input
+                            type="text"
+                            className="editFieldControl"
+                            placeholder="Attachment filename…"
+                            value={editingTask.draft.referenced_attachments?.[0] || ""}
+                            onChange={(e) => setEditingTask((s) => ({
+                              ...s,
+                              draft: {
+                                ...s.draft,
+                                referenced_attachments: e.target.value ? [e.target.value] : [],
+                              },
+                            }))}
+                          />
                         </div>
-                      )}
-                    </div>
-
-                    {/* Task uploaded files + per-task upload */}
-                    <div className="reviewMetaRow" style={{ alignItems: "flex-start" }}>
-                      <span className="reviewMetaLabel me-3" style={{ paddingTop: 3 }}>Uploads</span>
-                      <div className="taskUploadCol">
-                        {(item.task_attachments || []).map((att, i) => (
-                          <span key={i} className="taskAttachChip">
-                            <RiAttachment2 className="iconSize11" style={{ marginRight: 3 }} />
-                            <span className="taskAttachName">{att.file_name}</span>
-                            <button
-                              className="taskAttachDownload"
-                              onClick={() => downloadAttachment(att.id, activeAccount?.id)}
-                              title="Download"
-                            >
-                              <RiDownload2Line className="iconSize11" />
-                            </button>
-                          </span>
-                        ))}
-                        {item.backend_task_id && selectedProjectId ? (
-                          <>
-                            <input
-                              type="file"
-                              style={{ display: "none" }}
-                              ref={(el) => { fileInputRefs.current[item.id ?? idx] = el; }}
-                              onChange={(e) => handleTaskFileUpload(item, idx, e)}
-                            />
-                            <button
-                              className="taskUploadBtn"
-                              disabled={taskUploadingId === (item.id ?? idx)}
-                              onClick={() => fileInputRefs.current[item.id ?? idx]?.click()}
-                            >
-                              {taskUploadingId === (item.id ?? idx) ? (
-                                <RiLoader4Line className="spinnerIcon iconSize12" style={{ marginRight: 3 }} />
-                              ) : (
-                                <RiAttachment2 className="iconSize12" style={{ marginRight: 3 }} />
-                              )}
-                              {taskUploadingId === (item.id ?? idx) ? "Uploading…" : "Upload file"}
-                            </button>
-                          </>
-                        ) : (
-                          <span className="taskUploadHint">
-                            {item.backend_task_id ? "Select a project to upload" : "Save to project to upload files"}
-                          </span>
-                        )}
+                      </div>
+                      <div className="editCardActions">
+                        <button className="editCancelBtn" onClick={() => setEditingTask(null)}>Cancel</button>
+                        <button className="editSaveBtn" onClick={handleSaveTask}>Save</button>
                       </div>
                     </div>
-                  </div>
+                  ) : (
+                    <>
+                      <div className="extractCardHead">
+                        <div className="extractCardTitleBlock">
+                          <div className="extractCardTitle">
+                            {task.title}
+                            {riIsSaved && <span className="riSavedBadge" style={{ marginLeft: 6 }}>Saved</span>}
+                          </div>
+                          {task.description && (
+                            <div className="extractCardDesc">{task.description}</div>
+                          )}
+                        </div>
+                        <div className="extractCardMenuWrap">
+                          <button
+                            className="extractMoreBtn"
+                            onClick={(e) => { e.stopPropagation(); setOpenMenuId(isMenuOpen ? null : task.id); }}
+                          >
+                            <RiMoreFill className="iconSize14" />
+                          </button>
+                          {isMenuOpen && (
+                            <div className="extractMenuDropdown">
+                              <button
+                                className="extractMenuItem"
+                                onClick={() => { handleEditTask(riId, task); setOpenMenuId(null); }}
+                              >
+                                <RiEditLine className="iconSize13" /> Edit
+                              </button>
+                              <button
+                                className="extractMenuItem extractMenuItemDanger"
+                                onClick={() => { handleDeleteTask(riId, task.id); setOpenMenuId(null); }}
+                              >
+                                <RiDeleteBin7Line className="iconSize13" /> Delete
+                              </button>
+                            </div>
+                          )}
+                        </div>
+                      </div>
+
+                      <div className="extractCardTagRow">
+                        <span className={`extractDiscTag extractDiscTag-${riDiscipline || "other"}`}>
+                          <DiscIcon className="iconMr3 iconSize11" />
+                          {DISCIPLINE_LABEL[riDiscipline] || "Other"}
+                        </span>
+                        <select
+                          className={`extractStatusSelect taskStatusSel-${taskStatus}`}
+                          value={taskStatus}
+                          onChange={(e) => handleTaskStatusChange(riId, task.id, e.target.value)}
+                        >
+                          {Object.entries(TASK_STATUS_LABEL).map(([val, label]) => (
+                            <option key={val} value={val}>{label}</option>
+                          ))}
+                        </select>
+                      </div>
+
+                      <div className="extractCardDivider" />
+
+                      <div className="extractMetaRow">
+                        <span className="extractMetaLabel">Owner</span>
+                        <span className="extractMetaValue">
+                          {task.owner_name ? (
+                            <>
+                              <span className="ownerInitialsBadge">{ownerInitials}</span>
+                              {task.owner_name}
+                            </>
+                          ) : (
+                            <span className="extractMetaNone">Unassigned</span>
+                          )}
+                        </span>
+                      </div>
+
+                      <div className="extractMetaRow">
+                        <span className="extractMetaLabel">Due Date</span>
+                        <span className="extractMetaValue">
+                          {task.due_date ? (
+                            <>
+                              <RiCalendarLine className="iconSize12 iconMr4" />
+                              {formatDate(task.due_date)}
+                            </>
+                          ) : (
+                            <span className="extractMetaNone">—</span>
+                          )}
+                        </span>
+                      </div>
+
+                      <div className="extractMetaRow">
+                        <span className="extractMetaLabel">Evidence</span>
+                        <span className="extractMetaValue">
+                          {evidence ? (
+                            <>
+                              <RiAttachment2 className="iconSize12 iconMr4" />
+                              <span className="evidenceLink">{evidence}</span>
+                              <RiExternalLinkLine className="iconSize11" style={{ marginLeft: 3, color: "#2563eb", flexShrink: 0 }} />
+                            </>
+                          ) : (
+                            <span className="extractMetaNone">—</span>
+                          )}
+                        </span>
+                      </div>
+                    </>
+                  )}
                 </div>
               );
             })
@@ -1731,24 +1813,29 @@ export default function InboxPage() {
 
         <button
           className="addReviewBtn"
-          onClick={() =>
-            activeThread &&
-            activeAccount &&
-            createReviewItem(activeAccount.id, {
-              thread_id: activeThread.id,
-              title: "New review item",
-              discipline: "other",
-              status: "OPEN",
-            }).then((item) =>
-              setActiveThread((t) => ({
-                ...t,
-                review_items: [...(t.review_items || []), item],
-              }))
-            )
-          }
+          onClick={() => {
+            if (!activeThread) return;
+            const ris = activeThread.review_items || [];
+            if (ris.length === 0) {
+              const newRI = {
+                id: Date.now(),
+                ri_status: "new",
+                title: "Review Item",
+                description: "",
+                discipline: "other",
+                priority: "medium",
+                due_date: null,
+                tasks: [],
+              };
+              setActiveThread((t) => ({ ...t, review_items: [newRI] }));
+              handleAddTask(newRI.id);
+            } else {
+              handleAddTask(ris[0].id);
+            }
+          }}
           disabled={!activeThread}
         >
-          <RiAddLine className="iconSize15" /> Add review item
+          <RiAddLine className="iconSize15" /> Add task
         </button>
       </div>
 
