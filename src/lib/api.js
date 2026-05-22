@@ -199,6 +199,14 @@ export const updateProject = (projectId, body) =>
 export const deleteProject = (projectId) =>
   axiosInstance.delete(`/projects/${projectId}`).then((r) => r.data);
 
+export const uploadProjectLogo = (file) => {
+  const form = new FormData();
+  form.append("file", file);
+  return axiosInstance
+    .post("/projects/upload-logo", form, { headers: { "Content-Type": "multipart/form-data" } })
+    .then((r) => r.data);
+};
+
 // ── Review Items ──────────────────────────────────────────────────────────────
 
 export const listReviewItems = (threadId, accountId) =>

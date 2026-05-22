@@ -543,7 +543,7 @@ export default function InboxPage() {
     setActiveThread((t) => ({
       ...t,
       review_items: t.review_items.map((r) =>
-        r.id === editingRI.riId ? { ...r, ...editingRI.draft, tasks: r.tasks } : r
+        r.id === editingRI.riId ? { ...r, ...editingRI.draft, tasks: r.tasks, is_saved: false } : r
       ),
     }));
     setEditingRI(null);
@@ -558,7 +558,7 @@ export default function InboxPage() {
       ...t,
       review_items: t.review_items.map((r) =>
         r.id === editingTask.riId
-          ? { ...r, tasks: r.tasks.map((tk) => tk.id === editingTask.taskId ? { ...editingTask.draft } : tk) }
+          ? { ...r, is_saved: false, tasks: r.tasks.map((tk) => tk.id === editingTask.taskId ? { ...editingTask.draft } : tk) }
           : r
       ),
     }));
