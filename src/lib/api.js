@@ -319,6 +319,9 @@ export const getProjectReviewItems = (projectId, params = {}) => {
     .then((r) => r.data);
 };
 
+export const getProjectKanban = (projectId) =>
+  axiosInstance.get(`/projects/${projectId}/kanban`).then((r) => r.data);
+
 export const getProjectUpcomingDeadlines = (projectId, limit = 5) =>
   axiosInstance
     .get(`/projects/${projectId}/upcoming-deadlines?limit=${limit}`)

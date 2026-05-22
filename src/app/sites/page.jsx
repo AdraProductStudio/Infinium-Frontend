@@ -19,17 +19,22 @@ import {
   RiMapPin2Line,
   RiUserAddLine,
   RiCloseLine,
+  RiAlertLine,
+  RiBuildingLine,
+  RiFlashlightLine,
+  RiHammerLine,
+  RiShieldLine,
+  RiTimeLine,
 } from "react-icons/ri";
 import Sidebar from "../../components/Sidebar";
 import toast from "react-hot-toast";
 import {
   listProjects,
   getProject,
-  getProjectReviewItems,
+  getProjectKanban,
   getProjectUpcomingDeadlines,
   getProjectDecisions,
   getProjectStakeholders,
-  createProjectReviewItem,
 } from "../../lib/api";
 import "./sites.css";
 
@@ -46,12 +51,11 @@ const PHASES = [
   "Exec. Response",
 ];
 
-const KANBAN_COLS = [
-  { id: "new",                title: "New" },
-  { id: "in_review",          title: "In Review" },
-  { id: "waiting_on_external",title: "Waiting on External" },
-  { id: "needs_decision",     title: "Needs Decision" },
-  { id: "approved_closed",    title: "Approved / Closed" },
+const TASK_KANBAN_COLS = [
+  { id: "open",        title: "To Do" },
+  { id: "in_progress", title: "In Progress" },
+  { id: "blocked",     title: "Blocked" },
+  { id: "done",        title: "Done" },
 ];
 
 const DISC_LABEL = {
@@ -79,17 +83,24 @@ const DISC_TAG_CLASS = {
   Dev:       "tagDev",
 };
 
+const DISC_ICON = {
+  architect:  RiBuildingLine,
+  engineer:   RiFlashlightLine,
+  contractor: RiHammerLine,
+  consultant: RiShieldLine,
+  other:      RiAlertLine,
+};
+
+const STATUS_BADGE = {
+  open:        { label: "To Do",       cls: "badgeMedium" },
+  in_progress: { label: "In Progress", cls: "badgeInProgress" },
+  blocked:     { label: "Blocked",     cls: "badgeHigh" },
+  done:        { label: "Done",        cls: "badgeApproved" },
+};
+
 const AVATAR_COLORS = [
   "#4f6bed", "#059669", "#6b7280", "#0891b2",
   "#d97706", "#dc2626", "#7c3aed", "#ea580c",
-];
-
-const DISCIPLINE_OPTIONS = [
-  { value: "architect",  label: "Architecture" },
-  { value: "engineer",   label: "MEP / Engineering" },
-  { value: "contractor", label: "Contractor" },
-  { value: "consultant", label: "Consultant / Legal" },
-  { value: "other",      label: "Other" },
 ];
 
 /* ── Helpers ─────────────────────────────────────────── */
@@ -125,29 +136,6 @@ function getTimelineSteps(stage) {
   }));
 }
 
-function reviewItemToCard(ri) {
-  const discKey   = DISC_KEY[ri.discipline]   || "Dev";
-  const discLabel = DISC_LABEL[ri.discipline] || (ri.discipline || "Other");
-  const pri       = (ri.priority || "").toLowerCase();
-  const priLabel  = ri.status === "approved_closed"
-    ? "Approved"
-    : pri === "high" ? "High" : pri === "medium" ? "Medium" : "Low";
-
-  return {
-    id:          ri.id,
-    disc:        discLabel,
-    discKey,
-    title:       ri.title,
-    desc:        ri.description || "",
-    av:          getInitials(ri.owner_name || ""),
-    avColor:     avatarColor(ri.owner_id),
-    date:        ri.due_date ? formatDate(ri.due_date) : "—",
-    priority:    priLabel,
-    comments:    ri.comment_count   || 0,
-    attachments: ri.attachment_count || 0,
-  };
-}
-
 /* ── Sub-components ──────────────────────────────────── */
 
 function Avatar({ initials, color, size = "Md" }) {
@@ -158,46 +146,44 @@ function Avatar({ initials, color, size = "Md" }) {
   );
 }
 
-function ReviewCard({ card }) {
+function TaskCard({ card }) {
   const tagClass = DISC_TAG_CLASS[card.discKey] || "tagDev";
-  const priorityEl =
-    card.priority === "High"     ? <span className="badgeHigh">High</span>     :
-    card.priority === "Medium"   ? <span className="badgeMedium">Medium</span> :
-    card.priority === "Approved" ? <span className="badgeApproved">Approved</span> :
-                                   <span className="badgeMedium">Low</span>;
+  const DiscIcon = DISC_ICON[card.discipline] || RiAlertLine;
+  const badge = STATUS_BADGE[card.status] || STATUS_BADGE.open;
+  const isOverdue = card.is_overdue;
 
   return (
-    <div className="reviewCard">
+    <div className={`reviewCard${isOverdue ? " reviewCardOverdue" : ""}`}>
       <div className="cardDiscipline">
-        <span className={`tag ${tagClass}`}>{card.disc}</span>
+        <span className={`tag ${tagClass}`}>
+          <DiscIcon style={{ fontSize: 10, marginRight: 3, verticalAlign: "middle" }} />
+          {card.disc}
+        </span>
       </div>
       <div className="cardTitle">{card.title}</div>
       {card.desc && <div className="cardDesc">{card.desc}</div>}
+      {card.riTitle && (
+        <div className="cardRiLabel" title={card.riTitle}>
+          {card.riTitle}
+        </div>
+      )}
       <div className="cardFooter">
         {card.av ? (
           <Avatar initials={card.av} color={card.avColor} size="Xs" />
         ) : (
           <span style={{ width: 22 }} />
         )}
-        <span className="cardDate">
+        <span className={`cardDate${isOverdue ? " cardDateOverdue" : ""}`}>
           <RiCalendarLine className="iconSize12" />
-          {card.date}
+          {formatDate(card.due_date)}
         </span>
-        {priorityEl}
-      </div>
-      <div className="cardMeta">
-        <span className="cardMetaItem">
-          <RiChat3Line className="iconSize12" /> {card.comments}
-        </span>
-        <span className="cardMetaItem">
-          <RiAttachment2 className="iconSize12" /> {card.attachments}
-        </span>
+        <span className={badge.cls}>{badge.label}</span>
       </div>
     </div>
   );
 }
 
-function KanbanColumn({ col, onAdd }) {
+function KanbanColumn({ col }) {
   return (
     <div className="kanbanCol">
       <div className="kanbanColHeader">
@@ -208,110 +194,7 @@ function KanbanColumn({ col, onAdd }) {
         </button>
       </div>
       <div className="kanbanCards">
-        {col.cards.map((card) => <ReviewCard key={card.id} card={card} />)}
-      </div>
-      <div className="kanbanAddRow" onClick={onAdd}>
-        <RiAddLine className="iconSize14" /> Add review item
-      </div>
-    </div>
-  );
-}
-
-/* ── Add Review Item Modal ───────────────────────────── */
-
-function AddReviewItemModal({ projectId, onClose, onSuccess }) {
-  const [form, setForm] = useState({
-    title:       "",
-    description: "",
-    discipline:  "architect",
-    priority:    "medium",
-  });
-  const [saving, setSaving] = useState(false);
-
-  const handleSubmit = async (e) => {
-    e.preventDefault();
-    if (!form.title.trim()) { toast.error("Title is required"); return; }
-    setSaving(true);
-    try {
-      await createProjectReviewItem(projectId, {
-        title:       form.title.trim(),
-        description: form.description.trim() || undefined,
-        discipline:  form.discipline,
-        priority:    form.priority,
-        source:      "manual",
-      });
-      toast.success("Review item created");
-      onSuccess();
-    } catch (err) {
-      toast.error(err.message || "Failed to create review item");
-    } finally {
-      setSaving(false);
-    }
-  };
-
-  return (
-    <div className="modalOverlay" onClick={onClose}>
-      <div className="addItemModal" onClick={(e) => e.stopPropagation()}>
-        <div className="modalHeader">
-          <span className="modalTitle">Add Review Item</span>
-          <button className="iconBtn" onClick={onClose}>
-            <RiCloseLine className="iconSize16" />
-          </button>
-        </div>
-        <form onSubmit={handleSubmit} className="modalBody">
-          <div className="formGroup">
-            <label className="formLabel">Title *</label>
-            <input
-              className="formInput"
-              value={form.title}
-              onChange={(e) => setForm({ ...form, title: e.target.value })}
-              placeholder="e.g. Clarify setback at south property line"
-              autoFocus
-            />
-          </div>
-          <div className="formGroup">
-            <label className="formLabel">Description</label>
-            <textarea
-              className="formTextarea"
-              value={form.description}
-              onChange={(e) => setForm({ ...form, description: e.target.value })}
-              placeholder="Provide additional context..."
-              rows={3}
-            />
-          </div>
-          <div className="formRow">
-            <div className="formGroup" style={{ flex: 1 }}>
-              <label className="formLabel">Discipline</label>
-              <select
-                className="formSelect"
-                value={form.discipline}
-                onChange={(e) => setForm({ ...form, discipline: e.target.value })}
-              >
-                {DISCIPLINE_OPTIONS.map((o) => (
-                  <option key={o.value} value={o.value}>{o.label}</option>
-                ))}
-              </select>
-            </div>
-            <div className="formGroup" style={{ flex: 1 }}>
-              <label className="formLabel">Priority</label>
-              <select
-                className="formSelect"
-                value={form.priority}
-                onChange={(e) => setForm({ ...form, priority: e.target.value })}
-              >
-                <option value="high">High</option>
-                <option value="medium">Medium</option>
-                <option value="low">Low</option>
-              </select>
-            </div>
-          </div>
-          <div className="modalFooter">
-            <button type="button" className="outlineBtn" onClick={onClose}>Cancel</button>
-            <button type="submit" className="primaryBtn" disabled={saving}>
-              {saving ? "Creating…" : "Create Item"}
-            </button>
-          </div>
-        </form>
+        {col.cards.map((card) => <TaskCard key={card.id} card={card} />)}
       </div>
     </div>
   );
@@ -335,17 +218,16 @@ function LoadingState() {
 /* ── Inner page ──────────────────────────────────────── */
 
 function SitesPageInner() {
-  const router        = useRouter();
-  const searchParams  = useSearchParams();
+  const router         = useRouter();
+  const searchParams   = useSearchParams();
   const projectIdParam = searchParams.get("project_id");
 
   const [loading,      setLoading]      = useState(true);
   const [project,      setProject]      = useState(null);
-  const [reviewItems,  setReviewItems]  = useState([]);
+  const [kanban,       setKanban]       = useState(null);   // { columns, stats }
   const [deadlines,    setDeadlines]    = useState([]);
   const [decisions,    setDecisions]    = useState([]);
   const [stakeholders, setStakeholders] = useState([]);
-  const [showModal,    setShowModal]    = useState(false);
 
   const loadData = useCallback(async () => {
     setLoading(true);
@@ -359,18 +241,18 @@ function SitesPageInner() {
         projectId = projects[0].id;
       }
 
-      const [projRes, riRes, dlRes, decRes, shRes] = await Promise.all([
+      const [projRes, kanbanRes, dlRes, decRes, shRes] = await Promise.all([
         getProject(projectId),
-        getProjectReviewItems(projectId),
+        getProjectKanban(projectId),
         getProjectUpcomingDeadlines(projectId, 7),
         getProjectDecisions(projectId),
         getProjectStakeholders(projectId),
       ]);
 
       setProject(projRes?.data || null);
-      setReviewItems(riRes?.data || []);
-      setDeadlines(dlRes?.data   || []);
-      setDecisions(decRes?.data  || []);
+      setKanban(kanbanRes?.data || null);
+      setDeadlines(dlRes?.data  || []);
+      setDecisions(decRes?.data || []);
       setStakeholders(shRes?.data || []);
     } catch (err) {
       toast.error(err.message || "Failed to load project");
@@ -381,18 +263,28 @@ function SitesPageInner() {
 
   useEffect(() => { loadData(); }, [loadData]);
 
-  /* ── derived data ── */
-  const kanbanCols = KANBAN_COLS.map((col) => ({
+  /* ── derived ── */
+  const stats   = kanban?.stats || {};
+  const columns = kanban?.columns || {};
+
+  const kanbanCols = TASK_KANBAN_COLS.map((col) => ({
     ...col,
-    cards: reviewItems
-      .filter((ri) => ri.status === col.id)
-      .map(reviewItemToCard),
+    cards: (columns[col.id] || []).map((t) => ({
+      ...t,
+      disc:    DISC_LABEL[t.discipline]  || "Other",
+      discKey: DISC_KEY[t.discipline]    || "Dev",
+      av:      getInitials(t.stakeholder_name || ""),
+      avColor: avatarColor(t.stakeholder_id),
+    })),
   }));
 
-  const openItems     = reviewItems.filter((ri) => ri.status !== "approved_closed");
-  const waitingItems  = reviewItems.filter((ri) => ri.status === "waiting_on_external");
-  const decisionItems = reviewItems.filter((ri) => ri.status === "needs_decision");
-  const dueThisWeek   = deadlines.filter((d) => {
+  const openCount     = (stats.open_tasks || 0) + (stats.in_progress_tasks || 0);
+  const blockedCount  = stats.blocked_tasks  || 0;
+  const doneCount     = stats.done_tasks     || 0;
+  const dueWeekCount  = stats.due_this_week  || 0;
+  const totalTasks    = stats.total_tasks    || 0;
+
+  const dueThisWeek = deadlines.filter((d) => {
     if (!d.due_date) return false;
     const due  = new Date(d.due_date);
     const now  = new Date();
@@ -454,9 +346,6 @@ function SitesPageInner() {
             <button className="outlineBtn">
               <RiShareLine className="iconSize13" /> Share
             </button>
-            <button className="primaryBtn" onClick={() => setShowModal(true)}>
-              <RiAddLine className="iconSize14" /> Add Review Item
-            </button>
           </div>
         </div>
 
@@ -483,31 +372,31 @@ function SitesPageInner() {
                 <div className="statSub">Gate – {phaseBadgeLabel}</div>
               </div>
               <div className="statItem">
-                <div className="statLabel">Open Review Items</div>
-                <div className="statValue">{openItems.length}</div>
-                <div className="statSub">{reviewItems.length} total items</div>
+                <div className="statLabel">Open Tasks</div>
+                <div className="statValue">{openCount}</div>
+                <div className="statSub">{totalTasks} total tasks</div>
               </div>
               <div className="statItem">
-                <div className="statLabel">Waiting on External</div>
-                <div className="statValue">{waitingItems.length}</div>
+                <div className="statLabel">Blocked</div>
+                <div className="statValue">{blockedCount}</div>
                 <div className="statSub">
-                  {openItems.length
-                    ? `${Math.round((waitingItems.length / openItems.length) * 100)}% of open items`
+                  {openCount
+                    ? `${Math.round((blockedCount / (openCount + blockedCount)) * 100)}% of open`
                     : "—"}
                 </div>
               </div>
               <div className="statItem">
-                <div className="statLabel">Needs Decision</div>
-                <div className="statValue">{decisionItems.length}</div>
+                <div className="statLabel">Completed</div>
+                <div className="statValue">{doneCount}</div>
                 <div className="statSub">
-                  {openItems.length
-                    ? `${Math.round((decisionItems.length / openItems.length) * 100)}% of open items`
+                  {totalTasks
+                    ? `${Math.round((doneCount / totalTasks) * 100)}% done`
                     : "—"}
                 </div>
               </div>
               <div className="statItem">
                 <div className="statLabel">Due This Week</div>
-                <div className="statValue">{dueThisWeek.length}</div>
+                <div className="statValue">{dueWeekCount}</div>
                 <div className="statSub">{deadlines.length} upcoming deadlines</div>
               </div>
             </div>
@@ -536,11 +425,7 @@ function SitesPageInner() {
         {/* Kanban */}
         <div className="kanbanOuter">
           {kanbanCols.map((col) => (
-            <KanbanColumn
-              key={col.id}
-              col={col}
-              onAdd={() => setShowModal(true)}
-            />
+            <KanbanColumn key={col.id} col={col} />
           ))}
         </div>
       </div>
@@ -655,15 +540,6 @@ function SitesPageInner() {
           </button>
         </div>
       </div>
-
-      {/* ── Add Review Item Modal ── */}
-      {showModal && (
-        <AddReviewItemModal
-          projectId={project.id}
-          onClose={() => setShowModal(false)}
-          onSuccess={() => { setShowModal(false); loadData(); }}
-        />
-      )}
 
     </div>
   );

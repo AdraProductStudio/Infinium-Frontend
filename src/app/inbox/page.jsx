@@ -1348,6 +1348,34 @@ export default function InboxPage() {
                                 ) : (
                                   <p className="replyBody">{msg.body_text}</p>
                                 )}
+                                {msg.attachments?.length > 0 && (
+                                  <div className="attachmentsRow" style={{ marginTop: 10 }}>
+                                    <span className="attachmentsLabel">
+                                      {msg.attachments.length} attachment{msg.attachments.length > 1 ? "s" : ""}
+                                    </span>
+                                    <div className="attachments">
+                                      {msg.attachments.map((att, ai) => (
+                                        <div key={att.id ?? ai} className="attachmentCard">
+                                          <RiFilePdfLine className="pdfIcon iconSize20" />
+                                          <div className="attachmentInfo">
+                                            <span className="attachmentName">{att.file_name}</span>
+                                            <span className="attachmentSize">
+                                              {att.file_size >= 1024 * 1024
+                                                ? (att.file_size / (1024 * 1024)).toFixed(1) + " MB"
+                                                : (att.file_size / 1024).toFixed(1) + " KB"}
+                                            </span>
+                                          </div>
+                                          <button
+                                            className="downloadBtn"
+                                            onClick={() => downloadAttachment(att.id)}
+                                          >
+                                            <RiDownload2Line className="iconSize14" />
+                                          </button>
+                                        </div>
+                                      ))}
+                                    </div>
+                                  </div>
+                                )}
                                 <div className="msgActionBar">
                                   <button
                                     className="msgActionBtn"
