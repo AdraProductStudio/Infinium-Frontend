@@ -46,6 +46,7 @@ import {
   getProjectStakeholders,
   getProjectReviewItems,
   updateProjectTaskStatus,
+  updateProjectReviewItemStatus,
   createProject,
   updateProject,
   deleteProject,
@@ -118,6 +119,31 @@ const AVATAR_COLORS = [
   "#d97706", "#dc2626", "#7c3aed", "#ea580c",
 ];
 
+const RI_ACCENT_COLORS = [
+  { border: "#2563eb", bg: "#eff6ff" }, // blue
+  { border: "#16a34a", bg: "#f0fdf4" }, // green
+  { border: "#9333ea", bg: "#faf5ff" }, // purple
+  { border: "#ea580c", bg: "#fff7ed" }, // orange
+  { border: "#0891b2", bg: "#ecfeff" }, // cyan
+  { border: "#db2777", bg: "#fdf2f8" }, // pink
+  { border: "#65a30d", bg: "#f7fee7" }, // lime
+  { border: "#d97706", bg: "#fffbeb" }, // amber
+];
+
+const RI_KANBAN_COLS = [
+  { id: "new",              title: "New" },
+  { id: "open",             title: "Open" },
+  { id: "in_review",        title: "In Review" },
+  { id: "pending_approval", title: "Pending Approval" },
+  { id: "approved_closed",  title: "Closed" },
+];
+
+const RI_PRIORITY_COLORS = {
+  high:   { border: "#ef4444", bg: "#fef2f2" },
+  medium: { border: "#f59e0b", bg: "#fffbeb" },
+  low:    { border: "#22c55e", bg: "#f0fdf4" },
+};
+
 const STAGE_OPTIONS = [
   { label: "Concept",            value: "concept" },
   { label: "Test Fit",           value: "test_fit" },
@@ -184,37 +210,64 @@ function Avatar({ initials, color, size = "Md" }) {
 }
 
 function TaskCard({ card }) {
-  const tagClass = DISC_TAG_CLASS[card.discKey] || "tagDev";
-  const DiscIcon = DISC_ICON[card.discipline] || RiAlertLine;
-  const badge = STATUS_BADGE[card.status] || STATUS_BADGE.open;
-  const isOverdue = card.is_overdue;
+  const isOverdue   = card.is_overdue;
+  const riColor     = card.riColor || RI_ACCENT_COLORS[0];
+  const borderColor = isOverdue ? "#ef4444" : riColor.border;
+
+  const priBadgeLabel = card.status === "done"
+    ? "Approved"
+    : card.priority
+      ? card.priority.charAt(0).toUpperCase() + card.priority.slice(1)
+      : "Medium";
+  const priBadgeCls = card.status === "done"
+    ? "tcBadgeApproved"
+    : card.priority === "high"
+      ? "tcBadgeHigh"
+      : card.priority === "low"
+        ? "tcBadgeLow"
+        : "tcBadgeMedium";
 
   return (
-    <div className={`reviewCard reviewCard--${card.discKey}${isOverdue ? " reviewCardOverdue" : ""}`}>
-      <div className="cardDiscipline">
-        <span className={`tag ${tagClass}`}>
-          <DiscIcon style={{ fontSize: 10, marginRight: 3, verticalAlign: "middle" }} />
-          {card.disc}
-        </span>
+    <div
+      className={`taskCard${isOverdue ? " taskCardOverdue" : ""}`}
+      style={{ borderLeftColor: borderColor }}
+    >
+      {/* Discipline label — colored to match border */}
+      <div className="taskCardDisc" style={{ color: borderColor }}>
+        {card.disc}
       </div>
-      <div className="cardTitle">{card.title}</div>
-      {card.desc && <div className="cardDesc">{card.desc}</div>}
-      {card.riTitle && (
-        <div className="cardRiLabel" title={card.riTitle}>
-          {card.riTitle}
-        </div>
-      )}
-      <div className="cardFooter">
-        {card.av ? (
-          <Avatar initials={card.av} color={card.avColor} size="Xs" />
-        ) : (
-          <span style={{ width: 22 }} />
+
+      {/* Title */}
+      <div className="taskCardTitle">{card.title}</div>
+
+      {/* Description */}
+      {card.desc && <div className="taskCardDesc">{card.desc}</div>}
+
+      {/* Meta row: avatar · name · date · priority badge */}
+      <div className="taskCardMeta">
+        {card.av && <Avatar initials={card.av} color={card.avColor} size="Xs" />}
+        {card.stakeholder_name && (
+          <span className="taskCardAssignee">{card.stakeholder_name}</span>
         )}
-        <span className={`cardDate${isOverdue ? " cardDateOverdue" : ""}`}>
-          <RiCalendarLine className="iconSize12" />
-          {formatDate(card.due_date)}
+        {card.due_date && (
+          <span className={`taskCardDue${isOverdue ? " taskCardDueOverdue" : ""}`}>
+            <RiCalendarLine style={{ fontSize: 10 }} />
+            {formatDate(card.due_date)}
+          </span>
+        )}
+        <span className={priBadgeCls}>{priBadgeLabel}</span>
+      </div>
+
+      {/* Counts row: comments · attachments */}
+      <div className="taskCardCounts">
+        <span className="taskCardCount">
+          <RiChat3Line style={{ fontSize: 11 }} />
+          {card.comment_count || 0}
         </span>
-        <span className={badge.cls}>{badge.label}</span>
+        <span className="taskCardCount">
+          <RiAttachment2 style={{ fontSize: 11 }} />
+          {card.attachment_count || 0}
+        </span>
       </div>
     </div>
   );
@@ -246,6 +299,119 @@ function KanbanColumn({ col }) {
                     {...provided.dragHandleProps}
                   >
                     <TaskCard card={card} />
+                  </div>
+                )}
+              </Draggable>
+            ))}
+            {provided.placeholder}
+          </div>
+        </div>
+      )}
+    </Droppable>
+  );
+}
+
+const RI_TASK_STATUS_DOT = {
+  open:        "#f59e0b",
+  in_progress: "#3b82f6",
+  blocked:     "#ef4444",
+  done:        "#22c55e",
+};
+
+function RICard({ ri }) {
+  const tagClass = DISC_TAG_CLASS[DISC_KEY[ri.discipline]] || "tagDev";
+  const DiscIcon = DISC_ICON[ri.discipline] || RiAlertLine;
+  const priColor = RI_PRIORITY_COLORS[ri.priority] || RI_PRIORITY_COLORS.medium;
+  const tasks    = ri.tasks || [];
+
+  return (
+    <div
+      className="reviewCard"
+      style={{ borderLeftColor: priColor.border, background: priColor.bg }}
+    >
+      {/* Header row */}
+      <div className="cardDiscipline">
+        <span className={`tag ${tagClass}`}>
+          <DiscIcon style={{ fontSize: 10, marginRight: 3, verticalAlign: "middle" }} />
+          {DISC_LABEL[ri.discipline] || "Other"}
+        </span>
+        <span className={ri.priority === "high" ? "badgeHigh" : ri.priority === "low" ? "badgeLow" : "badgeMedium"}
+          style={{ marginLeft: "auto" }}>
+          {ri.priority}
+        </span>
+      </div>
+
+      {/* Title */}
+      <div className="cardTitle">{ri.title}</div>
+
+      {/* Description */}
+      {ri.description && <div className="cardDesc">{ri.description}</div>}
+
+      {/* Tasks list */}
+      {tasks.length > 0 && (
+        <div className="riCardTaskList">
+          {tasks.map((task) => (
+            <div key={task.id} className="riCardTaskRow">
+              <span
+                className="riCardTaskDot"
+                style={{ background: RI_TASK_STATUS_DOT[task.status] || "#d1d5db" }}
+              />
+              <span className="riCardTaskTitle">{task.title}</span>
+              {task.due_date && (
+                <span className="riCardTaskDate">{formatDate(task.due_date)}</span>
+              )}
+            </div>
+          ))}
+        </div>
+      )}
+
+      {/* Footer */}
+      <div className="cardFooter" style={{ marginTop: 8 }}>
+        {ri.owner_name ? (
+          <Avatar initials={getInitials(ri.owner_name)} color={avatarColor(ri.owner_id)} size="Xs" />
+        ) : (
+          <span style={{ width: 22 }} />
+        )}
+        {ri.due_date && (
+          <span className="cardDate">
+            <RiCalendarLine className="iconSize12" />
+            {formatDate(ri.due_date)}
+          </span>
+        )}
+        {tasks.length > 0 && (
+          <span className="riKanbanTaskBadge">
+            <RiTaskLine style={{ fontSize: 10, marginRight: 2 }} />
+            {tasks.length}
+          </span>
+        )}
+      </div>
+    </div>
+  );
+}
+
+function RIKanbanColumn({ col }) {
+  return (
+    <Droppable droppableId={`ri-${col.id}`}>
+      {(provided, snapshot) => (
+        <div
+          ref={provided.innerRef}
+          {...provided.droppableProps}
+          className={`kanbanCol${snapshot.isDraggingOver ? " kanbanColOver" : ""}`}
+        >
+          <div className="kanbanColHeader">
+            <span className="kanbanColTitle">{col.title}</span>
+            <span className="kanbanColCount">{col.cards.length}</span>
+          </div>
+          <div className="kanbanCards">
+            {col.cards.map((ri, index) => (
+              <Draggable key={String(ri.id)} draggableId={String(ri.id)} index={index}>
+                {(provided) => (
+                  <div
+                    ref={provided.innerRef}
+                    {...provided.draggableProps}
+                    {...provided.dragHandleProps}
+                  >
+                    <RICard ri={ri} />
                   </div>
                 )}
               </Draggable>
@@ -514,6 +680,7 @@ function SitesPageInner() {
   const [activeTab,      setActiveTab]      = useState("tasks"); // "tasks" | "review-items"
   const [reviewItems,    setReviewItems]    = useState([]);
   const [expandedRIs,    setExpandedRIs]    = useState(new Set());
+  const [riKanbanCols,   setRiKanbanCols]   = useState([]);
   const switcherRef = useRef(null);
 
   const loadData = useCallback(async () => {
@@ -565,6 +732,11 @@ function SitesPageInner() {
   /* ── sync kanbanCols when server data changes ── */
   useEffect(() => {
     const cols = kanban?.columns || {};
+    // build stable review-item → color index map (sorted IDs for consistency)
+    const allTasks = Object.values(cols).flat();
+    const riIds = [...new Set(allTasks.map((t) => t.review_item_id).filter(Boolean))].sort((a, b) => a - b);
+    const riColorMap = Object.fromEntries(riIds.map((id, i) => [id, RI_ACCENT_COLORS[i % RI_ACCENT_COLORS.length]]));
+
     setKanbanCols(TASK_KANBAN_COLS.map((col) => ({
       ...col,
       cards: (cols[col.id] || []).map((t) => ({
@@ -575,9 +747,18 @@ function SitesPageInner() {
         discKey: DISC_KEY[t.discipline]   || "Dev",
         av:      getInitials(t.stakeholder_name || ""),
         avColor: avatarColor(t.stakeholder_id),
+        riColor: riColorMap[t.review_item_id] || RI_ACCENT_COLORS[0],
       })),
     })));
   }, [kanban]);
+
+  /* ── sync riKanbanCols when reviewItems change ── */
+  useEffect(() => {
+    setRiKanbanCols(RI_KANBAN_COLS.map((col) => ({
+      ...col,
+      cards: reviewItems.filter((ri) => ri.status === col.id),
+    })));
+  }, [reviewItems]);
 
   /* ── drag & drop ── */
   function onDragEnd(result) {
@@ -601,6 +782,31 @@ function SitesPageInner() {
 
     updateProjectTaskStatus(project.id, cardId, toColId).catch((err) => {
       toast.error("Failed to update task status");
+      loadData();
+    });
+  }
+
+  function onRIDragEnd(result) {
+    const { source, destination, draggableId } = result;
+    if (!destination) return;
+    if (source.droppableId === destination.droppableId && source.index === destination.index) return;
+
+    const riId      = parseInt(draggableId, 10);
+    const fromColId = source.droppableId.replace("ri-", "");
+    const toColId   = destination.droppableId.replace("ri-", "");
+
+    setRiKanbanCols((prev) => {
+      const next = prev.map((col) => ({ ...col, cards: [...col.cards] }));
+      const from = next.find((c) => c.id === fromColId);
+      const to   = next.find((c) => c.id === toColId);
+      if (!from || !to) return prev;
+      const [moved] = from.cards.splice(source.index, 1);
+      to.cards.splice(destination.index, 0, { ...moved, status: toColId });
+      return next;
+    });
+
+    updateProjectReviewItemStatus(project.id, riId, toColId).catch(() => {
+      toast.error("Failed to update review item status");
       loadData();
     });
   }
@@ -1030,68 +1236,15 @@ function SitesPageInner() {
           </DragDropContext>
         )}
 
-        {/* Review Items list */}
+        {/* Review Items kanban */}
         {activeTab === "review-items" && (
-          <div className="riList">
-            {reviewItems.length === 0 && (
-              <div className="riEmpty">No review items yet for this project.</div>
-            )}
-            {reviewItems.map((ri) => {
-              const isExpanded = expandedRIs.has(ri.id);
-              const statusCls = { new: "riBadgeNew", open: "riBadgeOpen", in_review: "riBadgeInReview", needs_decision: "riBadgeDecision", resolved: "riBadgeResolved" }[ri.status] || "riBadgeOpen";
-              const priCls = { high: "badgeHigh", medium: "badgeMedium", low: "badgeLow" }[ri.priority] || "badgeMedium";
-              return (
-                <div key={ri.id} className="riCard">
-                  <div className="riCardHeader" onClick={() => setExpandedRIs((prev) => { const n = new Set(prev); isExpanded ? n.delete(ri.id) : n.add(ri.id); return n; })}>
-                    <RiArrowRightSLine className={`riChevron${isExpanded ? " riChevronOpen" : ""}`} />
-                    <div className="riCardMeta">
-                      <span className="riCardTitle">{ri.title}</span>
-                      <div className="riCardTags">
-                        <span className={statusCls}>{ri.status?.replace(/_/g, " ")}</span>
-                        <span className={priCls}>{ri.priority}</span>
-                        {ri.discipline && <span className="riBadgeDiscipline">{ri.discipline}</span>}
-                      </div>
-                    </div>
-                    {ri.owner_name && (
-                      <span className="riOwner">{ri.owner_name}</span>
-                    )}
-                    {ri.tasks?.length > 0 && (
-                      <span className="riTaskCount">{ri.tasks.length} task{ri.tasks.length !== 1 ? "s" : ""}</span>
-                    )}
-                  </div>
-                  {isExpanded && (
-                    <div className="riCardBody">
-                      {ri.description && (
-                        <p className="riDesc">{ri.description}</p>
-                      )}
-                      {ri.tasks?.length > 0 ? (
-                        <div className="riTasks">
-                          {ri.tasks.map((task) => {
-                            const tStatusCls = { open: "tBadgeOpen", in_progress: "tBadgeInProgress", blocked: "tBadgeBlocked", done: "tBadgeDone" }[task.status] || "tBadgeOpen";
-                            return (
-                              <div key={task.id} className="riTaskRow">
-                                <span className={`riTaskDot ${task.status}`} />
-                                <span className="riTaskTitle">{task.title}</span>
-                                {task.stakeholder_name && (
-                                  <span className="riTaskAssignee">{task.stakeholder_name}</span>
-                                )}
-                                {task.due_date && (
-                                  <span className="riTaskDue">{formatDate(task.due_date)}</span>
-                                )}
-                                <span className={tStatusCls}>{task.status?.replace(/_/g, " ")}</span>
-                              </div>
-                            );
-                          })}
-                        </div>
-                      ) : (
-                        <p className="riNoTasks">No tasks assigned.</p>
-                      )}
-                    </div>
-                  )}
-                </div>
-              );
-            })}
-          </div>
+          <DragDropContext onDragEnd={onRIDragEnd}>
+            <div className="kanbanOuter">
+              {riKanbanCols.map((col) => (
+                <RIKanbanColumn key={col.id} col={col} />
+              ))}
+            </div>
+          </DragDropContext>
         )}
       </div>
 

@@ -345,3 +345,8 @@ export const updateProjectTaskStatus = (projectId, taskId, status) =>
   axiosInstance
     .patch(`/projects/${projectId}/tasks/${taskId}/status`, { status })
     .then((r) => r.data);
+
+export const updateProjectReviewItemStatus = (projectId, itemId, status) =>
+  axiosInstance
+    .put(`/projects/${projectId}/review-items/${itemId}`, { status })
+    .then((r) => r.data);
