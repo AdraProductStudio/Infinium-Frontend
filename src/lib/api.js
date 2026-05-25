@@ -163,10 +163,10 @@ export const listLabels = (accountId) =>
 
 // ── Attachments ───────────────────────────────────────────────────────────────
 
-export const downloadAttachment = async (attachmentId, accountId) => {
+export const downloadAttachment = async (attachmentId) => {
   const token = getToken();
   const res = await axios.get(
-    `${BASE_URL}/attachments/${attachmentId}/download?account_id=${accountId}`,
+    `${BASE_URL}/attachments/${attachmentId}/download`,
     {
       responseType: "blob",
       headers: {
@@ -198,6 +198,14 @@ export const updateProject = (projectId, body) =>
 
 export const deleteProject = (projectId) =>
   axiosInstance.delete(`/projects/${projectId}`).then((r) => r.data);
+
+export const uploadProjectLogo = (file) => {
+  const form = new FormData();
+  form.append("file", file);
+  return axiosInstance
+    .post("/projects/upload-logo", form, { headers: { "Content-Type": "multipart/form-data" } })
+    .then((r) => r.data);
+};
 
 // ── Review Items ──────────────────────────────────────────────────────────────
 
@@ -241,3 +249,104 @@ export const getEmailThread = (threadId) =>
 
 export const extractConfirmItems = (threadId) =>
   axiosInstance.post(`/threads/${threadId}/extract`).then((r) => r.data);
+
+// ── Stakeholders ──────────────────────────────────────────────────────────────
+
+export const getStakeholders = (discipline = null) =>
+  axiosInstance
+    .get(`/stakeholders${discipline ? `?discipline=${encodeURIComponent(discipline)}` : ""}`)
+    .then((r) => r.data);
+
+// ── Project Review Items & Tasks ──────────────────────────────────────────────
+
+export const createProjectReviewItem = (projectId, body) =>
+  axiosInstance.post(`/projects/${projectId}/review-items`, body).then((r) => r.data);
+
+export const createTask = (projectId, reviewItemId, body) =>
+  axiosInstance
+    .post(`/projects/${projectId}/review-items/${reviewItemId}/tasks`, body)
+    .then((r) => r.data);
+
+export const updateTask = (projectId, reviewItemId, taskId, body) =>
+  axiosInstance
+    .put(`/projects/${projectId}/review-items/${reviewItemId}/tasks/${taskId}`, body)
+    .then((r) => r.data);
+
+export const uploadTaskAttachment = (projectId, taskId, file) => {
+  const form = new FormData();
+  form.append("file", file);
+  return axiosInstance
+    .post(`/projects/${projectId}/tasks/${taskId}/attachments`, form, {
+      headers: { "Content-Type": "multipart/form-data" },
+    })
+    .then((r) => r.data);
+};
+
+export const getTaskAttachments = (projectId, taskId) =>
+  axiosInstance.get(`/projects/${projectId}/tasks/${taskId}/attachments`).then((r) => r.data);
+
+// ── Email Actions ─────────────────────────────────────────────────────────────
+
+export const replyToEmail = (emailId, body) =>
+  axiosInstance.post(`/emails/${emailId}/reply`, body).then((r) => r.data);
+
+export const forwardEmail = (emailId, body) =>
+  axiosInstance.post(`/emails/${emailId}/forward`, body).then((r) => r.data);
+
+export const starEmail = (emailId) =>
+  axiosInstance.post(`/emails/${emailId}/star`).then((r) => r.data);
+
+export const archiveEmail = (emailId) =>
+  axiosInstance.post(`/emails/${emailId}/archive`).then((r) => r.data);
+
+// ── AI Draft Extractions ──────────────────────────────────────────────────────
+
+export const saveDraftExtraction = (threadId, body) =>
+  axiosInstance.post(`/threads/${threadId}/save-draft`, body).then((r) => r.data);
+
+export const getThreadDraft = (threadId) =>
+  axiosInstance.get(`/threads/${threadId}/draft`).then((r) => r.data);
+
+export const confirmExtraction = (threadId, body) =>
+  axiosInstance.post(`/threads/${threadId}/extract/confirm`, body).then((r) => r.data);
+
+export const getThreadReviewItems = (threadId) =>
+  axiosInstance.get(`/threads/${threadId}/review-items`).then((r) => r.data);
+
+// ── Project Detail ────────────────────────────────────────────────────────────
+
+export const getProject = (projectId) =>
+  axiosInstance.get(`/projects/${projectId}`).then((r) => r.data);
+
+export const getProjectReviewItems = (projectId, params = {}) => {
+  const qs = new URLSearchParams(
+    Object.fromEntries(Object.entries(params).filter(([, v]) => v != null))
+  ).toString();
+  return axiosInstance
+    .get(`/projects/${projectId}/review-items${qs ? `?${qs}` : ""}`)
+    .then((r) => r.data);
+};
+
+export const getProjectKanban = (projectId) =>
+  axiosInstance.get(`/projects/${projectId}/kanban`).then((r) => r.data);
+
+export const getProjectUpcomingDeadlines = (projectId, limit = 5) =>
+  axiosInstance
+    .get(`/projects/${projectId}/upcoming-deadlines?limit=${limit}`)
+    .then((r) => r.data);
+
+export const getProjectDecisions = (projectId) =>
+  axiosInstance.get(`/projects/${projectId}/decisions`).then((r) => r.data);
+
+export const getProjectStakeholders = (projectId) =>
+  axiosInstance.get(`/stakeholders/projects/${projectId}`).then((r) => r.data);
+
+export const updateProjectTaskStatus = (projectId, taskId, status) =>
+  axiosInstance
+    .patch(`/projects/${projectId}/tasks/${taskId}/status`, { status })
+    .then((r) => r.data);
+
+export const updateProjectReviewItemStatus = (projectId, itemId, status) =>
+  axiosInstance
+    .put(`/projects/${projectId}/review-items/${itemId}`, { status })
+    .then((r) => r.data);
