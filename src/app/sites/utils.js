@@ -17,19 +17,12 @@ export const PHASES = [
   "Exec. Response",
 ];
 
-// export const TASK_KANBAN_COLS = [
-//   { id: "open",        title: "To Do" },
-//   { id: "in_progress", title: "In Progress" },
-//   { id: "blocked",     title: "Blocked" },
-//   { id: "done",        title: "Done" },
-// ];
-
 export const TASK_KANBAN_COLS = [
-  { id: "new",        title: "New" },
-  { id: "in_review", title: "In Review" },
-  { id: "waiting_on_external",     title: "Waiting on External" },
-  { id: "needs_decision",        title: "Needs Decision" },
-  { id: "closed",        title: "Approved/Closed" },
+  { id: "new",              title: "New" },
+  { id: "in_review",        title: "In Review" },
+  { id: "pending_approval", title: "Pending Approval" },
+  { id: "needs_decision",   title: "Needs Decision" },
+  { id: "approved_closed",  title: "Closed" },
 ];
 
 export const DISC_LABEL = {
@@ -83,9 +76,9 @@ export const RI_ACCENT_COLORS = [
 
 export const RI_KANBAN_COLS = [
   { id: "new",              title: "New" },
-  { id: "open",             title: "Open" },
   { id: "in_review",        title: "In Review" },
   { id: "pending_approval", title: "Pending Approval" },
+  { id: "needs_decision",   title: "Needs Decision" },
   { id: "approved_closed",  title: "Closed" },
 ];
 

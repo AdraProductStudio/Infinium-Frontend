@@ -41,27 +41,19 @@ import "../../../sites.css";
 
 /* ── Constants ── */
 const TASK_STATUS_LABEL = {
-  new:                 "New",
-  in_review:           "In Review",
-  waiting_on_external: "Waiting on External",
-  needs_decision:      "Needs Decision",
-  closed:              "Approved / Closed",
-  open:                "New",
-  in_progress:         "In Review",
-  blocked:             "Needs Decision",
-  done:                "Approved / Closed",
+  new:              "New",
+  in_review:        "In Review",
+  pending_approval: "Pending Approval",
+  needs_decision:   "Needs Decision",
+  approved_closed:  "Approved / Closed",
 };
 
 const STATUS_COLOR = {
-  new:                 { bg: "#f0fdf4", text: "#15803d", dot: "#22c55e" },
-  in_review:           { bg: "#eff6ff", text: "#1d4ed8", dot: "#3b82f6" },
-  waiting_on_external: { bg: "#fefce8", text: "#a16207", dot: "#eab308" },
-  needs_decision:      { bg: "#fff7ed", text: "#c2410c", dot: "#f97316" },
-  closed:              { bg: "#f3f4f6", text: "#374151", dot: "#9ca3af" },
-  open:                { bg: "#f0fdf4", text: "#15803d", dot: "#22c55e" },
-  in_progress:         { bg: "#eff6ff", text: "#1d4ed8", dot: "#3b82f6" },
-  blocked:             { bg: "#fef2f2", text: "#dc2626", dot: "#ef4444" },
-  done:                { bg: "#f3f4f6", text: "#374151", dot: "#9ca3af" },
+  new:              { bg: "#f3f4f6", text: "#374151",  dot: "#9ca3af" },
+  in_review:        { bg: "#f5f3ff", text: "#6d28d9",  dot: "#8b5cf6" },
+  pending_approval: { bg: "#fffbeb", text: "#d97706",  dot: "#f59e0b" },
+  needs_decision:   { bg: "#fff7ed", text: "#c2410c",  dot: "#f97316" },
+  approved_closed:  { bg: "#f0fdf4", text: "#15803d",  dot: "#22c55e" },
 };
 
 const PRIORITY_COLOR = {
@@ -70,12 +62,6 @@ const PRIORITY_COLOR = {
   low:    { bg: "#f0fdf4", text: "#15803d", dot: "#22c55e" },
 };
 
-const STATUS_COMPAT = {
-  open:        "new",
-  in_progress: "in_review",
-  blocked:     "needs_decision",
-  done:        "closed",
-};
 
 /* ── Helpers ── */
 function fileIcon(filename = "") {
@@ -119,12 +105,39 @@ function LoadingShell() {
 
 /* ── History timeline entry ── */
 function HistoryEntry({ entry }) {
-  const isMove   = entry.type === "status_change" || entry.from_status || entry.to_status;
-  const fromLabel = TASK_STATUS_LABEL[entry.from_status] || entry.from_status || "";
-  const toLabel   = TASK_STATUS_LABEL[entry.to_status]   || entry.to_status   || "";
-  const toColor   = STATUS_COLOR[entry.to_status] || STATUS_COLOR.new;
-  const initials  = getInitials(entry.actor_name || entry.changed_by || "?");
-  const color     = avatarColor(entry.actor_id || 0);
+  const action = entry.action || "";
+  const isMove     = action === "status_changed";
+  const isAssign   = action === "assigned";
+  const isCreated  = action === "created";
+  const fromLabel  = TASK_STATUS_LABEL[entry.old_value] || entry.old_value || "";
+  const toLabel    = TASK_STATUS_LABEL[entry.new_value] || entry.new_value || "";
+  const toColor    = STATUS_COLOR[entry.new_value] || STATUS_COLOR.new;
+  const initials   = getInitials(entry.actor_name || "?");
+  const color      = avatarColor(entry.changed_by_id || 0);
+
+  function renderAction() {
+    if (isCreated) return <span className="tdHistoryAction">created this task</span>;
+    if (isMove) return (
+      <span className="tdHistoryAction">
+        moved task
+        {fromLabel && <> from <span className="tdHistoryFrom">{fromLabel}</span></>}
+        {toLabel   && <> to <span className="tdHistoryTo" style={{ background: toColor.bg, color: toColor.text }}>{toLabel}</span></>}
+      </span>
+    );
+    if (isAssign) return (
+      <span className="tdHistoryAction">
+        {entry.old_value ? "reassigned" : "assigned"} to{" "}
+        <strong>{entry.new_value || "Unassigned"}</strong>
+        {entry.old_value && <> (was <span className="tdHistoryFrom">{entry.old_value}</span>)</>}
+      </span>
+    );
+    const labelMap = {
+      due_date_changed:  "updated due date",
+      title_changed:     "renamed task",
+      description_changed: "updated description",
+    };
+    return <span className="tdHistoryAction">{labelMap[action] || action.replace(/_/g, " ")}</span>;
+  }
 
   return (
     <div className="tdHistoryEntry">
@@ -134,24 +147,12 @@ function HistoryEntry({ entry }) {
       </div>
       <div className="tdHistoryContent">
         <div className="tdHistoryTop">
-          <span className="tdHistoryActor">{entry.actor_name || entry.changed_by || "Someone"}</span>
-          {isMove ? (
-            <span className="tdHistoryAction">
-              moved task
-              {fromLabel && (
-                <> from <span className="tdHistoryFrom">{fromLabel}</span></>
-              )}
-              {toLabel && (
-                <> to <span className="tdHistoryTo" style={{ background: toColor.bg, color: toColor.text }}>{toLabel}</span></>
-              )}
-            </span>
-          ) : (
-            <span className="tdHistoryAction">{entry.description || "updated task"}</span>
-          )}
+          <span className="tdHistoryActor">{entry.actor_name || "Someone"}</span>
+          {renderAction()}
         </div>
-        <div className="tdHistoryTime" title={fullTime(entry.created_at || entry.changed_at)}>
+        <div className="tdHistoryTime">
           <RiTimeLine style={{ fontSize: 11 }} />
-          {timeAgo(entry.created_at || entry.changed_at)}
+          {fullTime(entry.created_at)}
         </div>
       </div>
     </div>
@@ -187,13 +188,7 @@ export default function TaskDetailPage() {
         setHistory(histRes?.data || []);
 
         const cols = kanbanRes?.data?.columns || {};
-        const normalizedCols = {};
-        Object.entries(cols).forEach(([status, tasks]) => {
-          const key = STATUS_COMPAT[status] || status;
-          normalizedCols[key] = [...(normalizedCols[key] || []), ...tasks];
-        });
-
-        const allTasks = Object.values(normalizedCols).flat();
+        const allTasks = Object.values(cols).flat();
         const riIds = [...new Set(allTasks.map((t) => t.review_item_id).filter(Boolean))].sort((a, b) => a - b);
         const riColorMap = Object.fromEntries(riIds.map((id, i) => [id, RI_ACCENT_COLORS[i % RI_ACCENT_COLORS.length]]));
 
@@ -244,9 +239,9 @@ export default function TaskDetailPage() {
   const borderColor   = isOverdue ? "#ef4444" : riColor.border;
   const tagClass      = DISC_TAG_CLASS[task.discKey] || "tagDev";
   const DiscIcon      = DISC_ICON[task.discipline]  || RiAlertLine;
-  const statusKey     = STATUS_COMPAT[task.status] || task.status || "new";
-  const statusLabel   = TASK_STATUS_LABEL[statusKey];
-  const statusColors  = STATUS_COLOR[statusKey] || STATUS_COLOR.new;
+  const statusKey    = task.status || "new";
+  const statusLabel  = TASK_STATUS_LABEL[statusKey] || statusKey;
+  const statusColors = STATUS_COLOR[statusKey] || STATUS_COLOR.new;
   const priorityKey   = (task.priority || "medium").toLowerCase();
   const priorityLabel = priorityKey.charAt(0).toUpperCase() + priorityKey.slice(1);
   const priColors     = PRIORITY_COLOR[priorityKey] || PRIORITY_COLOR.medium;

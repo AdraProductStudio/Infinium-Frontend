@@ -20,6 +20,8 @@ import {
   RiUserAddLine,
   RiTaskLine,
   RiAlertLine,
+  RiAddLine,
+  RiCloseLine,
 } from "react-icons/ri";
 import Sidebar from "../../../components/Sidebar";
 import toast from "react-hot-toast";
@@ -33,6 +35,10 @@ import {
   listProjects,
   updateProjectTaskStatus,
   updateProjectReviewItemStatus,
+  getKanbanColumns,
+  createKanbanColumn,
+  updateKanbanColumn,
+  deleteKanbanColumn,
 } from "../../../lib/api";
 import {
   PHASES,
@@ -124,7 +130,19 @@ function TaskCard({ card, onClick }) {
 }
 
 /* ── Kanban column (tasks) ── */
-function KanbanColumn({ col, onCardClick }) {
+function KanbanColumn({ col, onCardClick, onRename, onDelete }) {
+  const [editing, setEditing] = useState(false);
+  const [draft,   setDraft]   = useState(col.title);
+  const inputRef = useRef(null);
+
+  useEffect(() => { if (editing) inputRef.current?.select(); }, [editing]);
+
+  function commitRename() {
+    setEditing(false);
+    if (draft.trim() && draft.trim() !== col.title) onRename(col.id, col.dbId, draft.trim());
+    else setDraft(col.title);
+  }
+
   return (
     <Droppable droppableId={col.id}>
       {(provided, snapshot) => (
@@ -133,12 +151,30 @@ function KanbanColumn({ col, onCardClick }) {
           {...provided.droppableProps}
           className={`kanbanCol${snapshot.isDraggingOver ? " kanbanColOver" : ""}`}
         >
-          <div className="kanbanColHeader">
-            <span className="kanbanColTitle">{col.title}</span>
+          <div className="kanbanColHeader kanbanColHeaderEditable">
+            {editing ? (
+              <input
+                ref={inputRef}
+                className="kanbanColTitleInput"
+                value={draft}
+                onChange={(e) => setDraft(e.target.value)}
+                onBlur={commitRename}
+                onKeyDown={(e) => {
+                  if (e.key === "Enter") commitRename();
+                  if (e.key === "Escape") { setEditing(false); setDraft(col.title); }
+                }}
+              />
+            ) : (
+              <span className="kanbanColTitle" onClick={() => { setDraft(col.title); setEditing(true); }} title="Click to rename">
+                {col.title}
+              </span>
+            )}
             <span className="kanbanColCount">{col.cards.length}</span>
-            <button className="iconBtn" style={{ padding: "2px 4px" }}>
-              <RiMoreLine className="iconSize14" />
-            </button>
+            {col.dbId && (
+              <button className="kanbanColDeleteBtn" onClick={() => onDelete(col.id, col.dbId)} title="Delete column">
+                <RiCloseLine style={{ fontSize: 13 }} />
+              </button>
+            )}
           </div>
           <div className="kanbanCards">
             {col.cards.map((card, index) => (
@@ -235,7 +271,19 @@ function RICard({ ri }) {
 }
 
 /* ── RI Kanban column ── */
-function RIKanbanColumn({ col }) {
+function RIKanbanColumn({ col, onRename, onDelete }) {
+  const [editing, setEditing] = useState(false);
+  const [draft,   setDraft]   = useState(col.title);
+  const inputRef = useRef(null);
+
+  useEffect(() => { if (editing) inputRef.current?.select(); }, [editing]);
+
+  function commitRename() {
+    setEditing(false);
+    if (draft.trim() && draft.trim() !== col.title) onRename(col.id, col.dbId, draft.trim());
+    else setDraft(col.title);
+  }
+
   return (
     <Droppable droppableId={`ri-${col.id}`}>
       {(provided, snapshot) => (
@@ -244,9 +292,30 @@ function RIKanbanColumn({ col }) {
           {...provided.droppableProps}
           className={`kanbanCol${snapshot.isDraggingOver ? " kanbanColOver" : ""}`}
         >
-          <div className="kanbanColHeader">
-            <span className="kanbanColTitle">{col.title}</span>
+          <div className="kanbanColHeader kanbanColHeaderEditable">
+            {editing ? (
+              <input
+                ref={inputRef}
+                className="kanbanColTitleInput"
+                value={draft}
+                onChange={(e) => setDraft(e.target.value)}
+                onBlur={commitRename}
+                onKeyDown={(e) => {
+                  if (e.key === "Enter") commitRename();
+                  if (e.key === "Escape") { setEditing(false); setDraft(col.title); }
+                }}
+              />
+            ) : (
+              <span className="kanbanColTitle" onClick={() => { setDraft(col.title); setEditing(true); }} title="Click to rename">
+                {col.title}
+              </span>
+            )}
             <span className="kanbanColCount">{col.cards.length}</span>
+            {col.dbId && (
+              <button className="kanbanColDeleteBtn" onClick={() => onDelete(col.id, col.dbId)} title="Delete column">
+                <RiCloseLine style={{ fontSize: 13 }} />
+              </button>
+            )}
           </div>
           <div className="kanbanCards">
             {col.cards.map((ri, index) => (
@@ -281,6 +350,7 @@ export default function ProjectDetailPage() {
   const [project,      setProject]      = useState(null);
   const [kanban,       setKanban]       = useState(null);
   const [kanbanCols,   setKanbanCols]   = useState([]);
+  const [riColDefs,    setRiColDefs]    = useState(RI_KANBAN_COLS.map((c) => ({ ...c, dbId: null })));
   const [deadlines,    setDeadlines]    = useState([]);
   const [decisions,    setDecisions]    = useState([]);
   const [stakeholders, setStakeholders] = useState([]);
@@ -293,7 +363,7 @@ export default function ProjectDetailPage() {
   const loadData = useCallback(async () => {
     setLoading(true);
     try {
-      const [listRes, projRes, kanbanRes, dlRes, decRes, shRes, riRes] = await Promise.all([
+      const [listRes, projRes, kanbanRes, dlRes, decRes, shRes, riRes, riColRes] = await Promise.all([
         listProjects(),
         getProject(projectId),
         getProjectKanban(projectId),
@@ -301,6 +371,7 @@ export default function ProjectDetailPage() {
         getProjectDecisions(projectId),
         getProjectStakeholders(projectId),
         getProjectReviewItems(projectId),
+        getKanbanColumns("review_item"),
       ]);
       setProjects(listRes?.data || []);
       setProject(projRes?.data || null);
@@ -309,6 +380,9 @@ export default function ProjectDetailPage() {
       setDecisions(decRes?.data || []);
       setStakeholders(shRes?.data || []);
       setReviewItems(riRes?.data || []);
+
+      const riCols = (riColRes?.data || []).map((c) => ({ id: c.name, dbId: c.id, title: c.label, color: c.color }));
+      if (riCols.length) setRiColDefs(riCols);
     } catch (err) {
       toast.error(err.message || "Failed to load project");
     } finally {
@@ -329,26 +403,12 @@ export default function ProjectDetailPage() {
   }, []);
 
   useEffect(() => {
-    const rawCols = kanban?.columns || {};
-
-    // Map old status values to new column IDs for backward compat
-    const STATUS_COMPAT = {
-      open:        "new",
-      in_progress: "in_review",
-      blocked:     "needs_decision",
-      done:        "closed",
-    };
-    const cols = {};
-    Object.entries(rawCols).forEach(([status, tasks]) => {
-      const key = STATUS_COMPAT[status] || status;
-      cols[key] = [...(cols[key] || []), ...tasks];
-    });
-
+    const cols = kanban?.columns || {};
     const allTasks = Object.values(cols).flat();
     const riIds = [...new Set(allTasks.map((t) => t.review_item_id).filter(Boolean))].sort((a, b) => a - b);
     const riColorMap = Object.fromEntries(riIds.map((id, i) => [id, RI_ACCENT_COLORS[i % RI_ACCENT_COLORS.length]]));
 
-    setKanbanCols(TASK_KANBAN_COLS.map((col) => ({
+    setKanbanCols(riColDefs.map((col) => ({
       ...col,
       cards: (cols[col.id] || []).map((t) => ({
         ...t,
@@ -361,14 +421,14 @@ export default function ProjectDetailPage() {
         riColor: riColorMap[t.review_item_id] || RI_ACCENT_COLORS[0],
       })),
     })));
-  }, [kanban]);
+  }, [kanban, riColDefs]);
 
   useEffect(() => {
-    setRiKanbanCols(RI_KANBAN_COLS.map((col) => ({
+    setRiKanbanCols(riColDefs.map((col) => ({
       ...col,
       cards: reviewItems.filter((ri) => ri.status === col.id),
     })));
-  }, [reviewItems]);
+  }, [reviewItems, riColDefs]);
 
   function onDragEnd(result) {
     const { source, destination, draggableId } = result;
@@ -418,6 +478,39 @@ export default function ProjectDetailPage() {
       toast.error("Failed to update review item status");
       loadData();
     });
+  }
+
+  /* ── kanban column CRUD (shared by both boards — tasks use RI stages) ── */
+  async function handleRenameRICol(colId, dbId, label) {
+    if (!label.trim() || !dbId) return;
+    setRiColDefs((prev) => prev.map((c) => c.id === colId ? { ...c, title: label } : c));
+    try { await updateKanbanColumn(dbId, { label: label.trim() }); }
+    catch { toast.error("Failed to rename column"); loadData(); }
+  }
+
+  async function handleDeleteRICol(colId, dbId) {
+    if (!dbId) return;
+    setRiColDefs((prev) => prev.filter((c) => c.id !== colId));
+    try { await deleteKanbanColumn(dbId); }
+    catch (err) { toast.error(err.message || "Failed to delete column"); loadData(); }
+  }
+
+  async function handleAddRICol() {
+    const label = "New Column";
+    const name  = `col_${Date.now()}`;
+    const tempCol = { id: name, dbId: null, title: label, color: "#6b7280" };
+    setRiColDefs((prev) => [...prev, tempCol]);
+    try {
+      const res = await createKanbanColumn({ entity_type: "review_item", name, label, color: "#6b7280" });
+      const created = res?.data;
+      setRiColDefs((prev) => prev.map((c) => c.id === name
+        ? { id: created.name, dbId: created.id, title: created.label, color: created.color }
+        : c
+      ));
+    } catch (err) {
+      toast.error(err.message || "Failed to add column");
+      setRiColDefs((prev) => prev.filter((c) => c.id !== name));
+    }
   }
 
   if (loading) return <LoadingShell />;
@@ -570,8 +663,18 @@ export default function ProjectDetailPage() {
           <DragDropContext onDragEnd={onDragEnd}>
             <div className="kanbanOuter">
               {kanbanCols.map((col) => (
-                <KanbanColumn key={col.id} col={col} onCardClick={(card) => router.push(`/sites/${projectId}/tasks/${card.id}`)} />
+                <KanbanColumn
+                  key={col.id}
+                  col={col}
+                  onCardClick={(card) => router.push(`/sites/${projectId}/tasks/${card.id}`)}
+                  onRename={handleRenameRICol}
+                  onDelete={handleDeleteRICol}
+                />
               ))}
+              <button className="kanbanAddColBtn" onClick={handleAddRICol} title="Add column">
+                <RiAddLine style={{ fontSize: 16 }} />
+                Add column
+              </button>
             </div>
           </DragDropContext>
         )}
@@ -580,8 +683,17 @@ export default function ProjectDetailPage() {
           <DragDropContext onDragEnd={onRIDragEnd}>
             <div className="kanbanOuter">
               {riKanbanCols.map((col) => (
-                <RIKanbanColumn key={col.id} col={col} />
+                <RIKanbanColumn
+                  key={col.id}
+                  col={col}
+                  onRename={handleRenameRICol}
+                  onDelete={handleDeleteRICol}
+                />
               ))}
+              <button className="kanbanAddColBtn" onClick={handleAddRICol} title="Add column">
+                <RiAddLine style={{ fontSize: 16 }} />
+                Add column
+              </button>
             </div>
           </DragDropContext>
         )}

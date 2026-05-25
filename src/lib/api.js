@@ -353,3 +353,15 @@ export const updateProjectReviewItemStatus = (projectId, itemId, status) =>
   axiosInstance
     .put(`/projects/${projectId}/review-items/${itemId}`, { status })
     .then((r) => r.data);
+
+export const getKanbanColumns = (entityType) =>
+  axiosInstance.get(`/kanban-columns?entity_type=${entityType}`).then((r) => r.data);
+
+export const createKanbanColumn = (body) =>
+  axiosInstance.post("/kanban-columns", body).then((r) => r.data);
+
+export const updateKanbanColumn = (colId, body) =>
+  axiosInstance.put(`/kanban-columns/${colId}`, body).then((r) => r.data);
+
+export const deleteKanbanColumn = (colId) =>
+  axiosInstance.delete(`/kanban-columns/${colId}`).then((r) => r.data);
