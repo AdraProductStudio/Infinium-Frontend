@@ -1,21 +1,21 @@
 /* ── Gmail Error Banner ── */
 .gmailErrorBanner {
   position: fixed;
-  top: 16px;
+  top: 1rem;
   left: 50%;
   transform: translateX(-50%);
   z-index: 1000;
   display: flex;
   align-items: center;
-  gap: 12px;
-  padding: 10px 16px;
+  gap: 0.75rem;
+  padding: 0.625rem 1rem;
   background: #fef2f2;
-  border: 1px solid #fca5a5;
-  border-radius: 8px;
+  border: 0.062rem solid #fca5a5;
+  border-radius: 0.5rem;
   color: #dc2626;
-  font-size: 13px;
+  font-size: 0.812rem;
   font-weight: 500;
-  box-shadow: 0 4px 12px rgba(0,0,0,0.1);
+  box-shadow: 0 0.25rem 0.75rem rgba(0,0,0,0.1);
 }
 
 .gmailErrorBanner button {
@@ -23,7 +23,7 @@
   border: none;
   color: #dc2626;
   cursor: pointer;
-  font-size: 14px;
+  font-size: 0.875rem;
   padding: 0;
   line-height: 1;
 }
@@ -31,8 +31,8 @@
 /* ── App Shell ── */
 .appShell {
   display: grid;
-  grid-template-columns: 200px 300px 1fr 340px;
-  grid-template-rows: 52px 1fr;
+  grid-template-columns: 12.5rem 18.75rem 1fr 21.25rem;
+  grid-template-rows: 3.25rem 1fr;
   grid-template-areas:
     "sidebar topnav topnav topnav"
     "sidebar emailpanel thread rightpanel";
@@ -48,30 +48,30 @@
   grid-area: topnav;
   display: flex;
   align-items: center;
-  gap: 12px;
-  padding: 0 16px;
+  gap: 0.75rem;
+  padding: 0 1rem;
   background: #fff;
-  border-bottom: 1px solid #e5e7eb;
+  border-bottom: 0.062rem solid #e5e7eb;
   z-index: 10;
 }
 
 .topNavLeft {
   display: flex;
   align-items: center;
-  gap: 8px;
+  gap: 0.5rem;
 }
 
 .orgSwitcher {
   display: flex;
   align-items: center;
-  gap: 6px;
-  font-size: 13px;
+  gap: 0.375rem;
+  font-size: 0.812rem;
   font-weight: 500;
   color: #374151;
   background: none;
-  border: 1px solid #e5e7eb;
-  border-radius: 7px;
-  padding: 5px 10px;
+  border: 0.062rem solid #e5e7eb;
+  border-radius: 0.438rem;
+  padding: 0.312rem 0.625rem;
   cursor: pointer;
   white-space: nowrap;
 }
@@ -87,9 +87,9 @@
   display: flex;
   align-items: center;
   background: #f3f4f6;
-  border-radius: 8px;
-  padding: 5px 12px;
-  gap: 8px;
+  border-radius: 0.5rem;
+  padding: 0.312rem 0.75rem;
+  gap: 0.5rem;
 }
 
 .searchIcon {
@@ -101,7 +101,7 @@
   border: none;
   background: transparent;
   outline: none;
-  font-size: 12.5px;
+  font-size: 0.781rem;
   color: #374151;
   flex: 1;
   font-family: inherit;
@@ -111,29 +111,29 @@
 }
 
 .searchKbd {
-  font-size: 11px;
+  font-size: 0.688rem;
   color: #9ca3af;
   background: #e5e7eb;
-  padding: 1px 6px;
-  border-radius: 4px;
+  padding: 0.062rem 0.375rem;
+  border-radius: 0.25rem;
 }
 
 .topNavRight {
   display: flex;
   align-items: center;
-  gap: 10px;
+  gap: 0.625rem;
   flex-shrink: 0;
 }
 
 .statusChip {
   display: flex;
   align-items: center;
-  gap: 5px;
-  font-size: 11.5px;
+  gap: 0.312rem;
+  font-size: 0.719rem;
   color: #374151;
   background: #f3f4f6;
-  border-radius: 20px;
-  padding: 4px 10px;
+  border-radius: 1.25rem;
+  padding: 0.25rem 0.625rem;
 }
 
 .statusChipSub {
@@ -141,8 +141,8 @@
 }
 
 .statusDot {
-  width: 7px;
-  height: 7px;
+  width: 0.438rem;
+  height: 0.438rem;
   border-radius: 50%;
   display: inline-block;
 }
@@ -153,37 +153,37 @@
 
 .statusSub {
   color: #6b7280;
-  font-size: 10.5px;
+  font-size: 0.656rem;
 }
 
 .avatarChip {
   display: flex;
   align-items: center;
-  gap: 8px;
+  gap: 0.5rem;
 }
 
 .userAvatar {
-  width: 32px;
-  height: 32px;
+  width: 2rem;
+  height: 2rem;
   border-radius: 50%;
   background: #374151;
   color: #fff;
   display: flex;
   align-items: center;
   justify-content: center;
-  font-size: 12px;
+  font-size: 0.75rem;
   font-weight: 600;
 }
 
 .userName {
-  font-size: 12.5px;
+  font-size: 0.781rem;
   font-weight: 600;
   color: #111827;
   line-height: 1.2;
 }
 
 .userRole {
-  font-size: 10.5px;
+  font-size: 0.656rem;
   color: #6b7280;
 }
 
@@ -191,40 +191,40 @@
 .sidebar {
   grid-area: sidebar;
   background: #fff;
-  border-right: 1px solid #e5e7eb;
+  border-right: 0.062rem solid #e5e7eb;
   display: flex;
   flex-direction: column;
-  /* padding: 0 0 16px; */
+  /* padding: 0 0 1rem; */
 }
 
 .sidebarLogo {
   display: flex;
   align-items: center;
-  gap: 8px;
-  padding: 14px 16px;
-  border-bottom: 1px solid #e5e7eb;
+  gap: 0.5rem;
+  padding: 0.875rem 1rem;
+  border-bottom: 0.062rem solid #e5e7eb;
 }
 
 .logoIcon {
-  width: 26px;
-  height: 26px;
+  width: 1.625rem;
+  height: 1.625rem;
   background: #111827;
-  border-radius: 6px;
+  border-radius: 0.375rem;
   display: flex;
   align-items: center;
   justify-content: center;
 }
 
 .logoSquare {
-  width: 10px;
-  height: 10px;
+  width: 0.625rem;
+  height: 0.625rem;
   background: #fff;
-  border-radius: 2px;
+  border-radius: 0.125rem;
   display: block;
 }
 
 .logoText {
-  font-size: 13px;
+  font-size: 0.812rem;
   font-weight: 700;
   color: #111827;
   white-space: nowrap;
@@ -232,20 +232,20 @@
 
 .sidebarNav {
   flex: 1;
-  padding: 8px 0;
+  padding: 0.5rem 0;
 }
 
 .sidebarBottom {
   padding: 0;
-  border-top: 1px solid #e5e7eb;
+  border-top: 0.062rem solid #e5e7eb;
 }
 
 .sidebarItem {
   display: flex;
   align-items: center;
-  gap: 10px;
-  padding: 9px 16px;
-  font-size: 13px;
+  gap: 0.625rem;
+  padding: 0.562rem 1rem;
+  font-size: 0.812rem;
   font-weight: 500;
   color: #6b7280;
   cursor: pointer;
@@ -254,7 +254,7 @@
   transition: background 0.15s;
 }
 .sidebarBottom .sidebarItem {
-  padding: 6px 16px !important;
+  padding: 0.375rem 1rem !important;
 }
 .sidebarItem:hover {
   background: #f3f4f6;
@@ -270,7 +270,7 @@
 }
 
 .sidebarIcon {
-  font-size: 17px;
+  font-size: 1.062rem;
   flex-shrink: 0;
 }
 
@@ -281,17 +281,17 @@
 .sidebarBadge {
   background: #e5e7eb;
   color: #374151;
-  font-size: 11px;
+  font-size: 0.688rem;
   font-weight: 600;
-  border-radius: 10px;
-  padding: 1px 7px;
+  border-radius: 0.625rem;
+  padding: 0.062rem 0.438rem;
 }
 
 /* ── Email List Panel ── */
 .emailPanel {
   grid-area: emailpanel;
   background: #fff;
-  border-right: 1px solid #e5e7eb;
+  border-right: 0.062rem solid #e5e7eb;
   display: flex;
   flex-direction: column;
   overflow: hidden;
@@ -300,12 +300,12 @@
 .emailPanelHeader {
   display: flex;
   align-items: center;
-  gap: 10px;
-  padding: 14px 16px 10px;
+  gap: 0.625rem;
+  padding: 0.875rem 1rem 0.625rem;
 }
 
 .panelTitle {
-  font-size: 15px;
+  font-size: 0.938rem;
   font-weight: 700;
   color: #111827;
   margin: 0;
@@ -315,34 +315,34 @@
 .aiOnBadge {
   display: flex;
   align-items: center;
-  gap: 4px;
-  font-size: 11px;
+  gap: 0.25rem;
+  font-size: 0.688rem;
   font-weight: 600;
   color: #2563eb;
   background: #dbeafe;
-  border-radius: 20px;
-  padding: 3px 9px;
+  border-radius: 1.25rem;
+  padding: 0.188rem 0.562rem;
 }
 
 .filterTabs {
   display: flex;
   align-items: center;
-  gap: 2px;
-  padding: 0 12px 6px;
-  border-bottom: 1px solid #e5e7eb;
+  gap: 0.125rem;
+  padding: 0 0.75rem 0.375rem;
+  border-bottom: 0.062rem solid #e5e7eb;
 }
 
 .filterTab {
   display: flex;
   align-items: center;
-  gap: 4px;
-  padding: 5px 10px;
-  font-size: 12px;
+  gap: 0.25rem;
+  padding: 0.312rem 0.625rem;
+  font-size: 0.75rem;
   font-weight: 500;
   color: #6b7280;
   background: none;
   border: none;
-  border-radius: 6px;
+  border-radius: 0.375rem;
   cursor: pointer;
   font-family: inherit;
 }
@@ -358,7 +358,7 @@
 }
 
 .filterCount {
-  font-size: 11px;
+  font-size: 0.688rem;
   font-weight: 600;
   color: #6b7280;
 }
@@ -369,22 +369,22 @@
 .filterRow {
   display: flex;
   align-items: center;
-  gap: 6px;
-  padding: 8px 12px;
-  border-bottom: 1px solid #f3f4f6;
+  gap: 0.375rem;
+  padding: 0.5rem 0.75rem;
+  border-bottom: 0.062rem solid #f3f4f6;
 }
 
 .filterDropdown {
   display: flex;
   align-items: center;
-  gap: 4px;
-  font-size: 12px;
+  gap: 0.25rem;
+  font-size: 0.75rem;
   font-weight: 500;
   color: #374151;
   background: #f3f4f6;
   border: none;
-  border-radius: 6px;
-  padding: 5px 10px;
+  border-radius: 0.375rem;
+  padding: 0.312rem 0.625rem;
   cursor: pointer;
   font-family: inherit;
 }
@@ -395,11 +395,11 @@
 .filterIconBtn {
   background: #f3f4f6;
   border: none;
-  border-radius: 6px;
-  padding: 5px 8px;
+  border-radius: 0.375rem;
+  padding: 0.312rem 0.5rem;
   cursor: pointer;
   color: #6b7280;
-  font-size: 14px;
+  font-size: 0.875rem;
   display: flex;
   align-items: center;
 }
@@ -411,9 +411,9 @@
 
 .emailItem {
   display: flex;
-  gap: 10px;
-  padding: 11px 14px;
-  border-bottom: 1px solid #f3f4f6;
+  gap: 0.625rem;
+  padding: 0.688rem 0.875rem;
+  border-bottom: 0.062rem solid #f3f4f6;
   cursor: pointer;
   transition: background 0.12s;
 }
@@ -423,7 +423,7 @@
 
 .emailItemActive {
   background: #f0f4ff;
-  border-left: 3px solid #2563eb;
+  border-left: 0.188rem solid #2563eb;
 }
 
 .emailItemContent {
@@ -435,11 +435,11 @@
   display: flex;
   justify-content: space-between;
   align-items: center;
-  margin-bottom: 2px;
+  margin-bottom: 0.125rem;
 }
 
 .emailSender {
-  font-size: 12.5px;
+  font-size: 0.781rem;
   font-weight: 600;
   color: #111827;
   white-space: nowrap;
@@ -448,43 +448,43 @@
 }
 
 .emailTime {
-  font-size: 11px;
+  font-size: 0.688rem;
   color: #9ca3af;
   flex-shrink: 0;
-  margin-left: 6px;
+  margin-left: 0.375rem;
 }
 
 .emailSubject {
-  font-size: 12px;
+  font-size: 0.75rem;
   font-weight: 500;
   color: #374151;
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
-  margin-bottom: 2px;
+  margin-bottom: 0.125rem;
 }
 
 .emailPreview {
-  font-size: 11.5px;
+  font-size: 0.719rem;
   color: #9ca3af;
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
-  margin-bottom: 4px;
+  margin-bottom: 0.25rem;
 }
 
 .emailMeta {
   display: flex;
   align-items: center;
-  gap: 6px;
+  gap: 0.375rem;
 }
 
 .emailTag {
-  font-size: 10.5px;
+  font-size: 0.656rem;
   color: #2563eb;
   background: #dbeafe;
-  border-radius: 10px;
-  padding: 1px 8px;
+  border-radius: 0.625rem;
+  padding: 0.062rem 0.5rem;
   font-weight: 500;
 }
 
@@ -493,21 +493,21 @@
 }
 
 .unreadDot {
-  width: 7px;
-  height: 7px;
+  width: 0.438rem;
+  height: 0.438rem;
   border-radius: 50%;
   background: #2563eb;
   display: inline-block;
 }
 
 .emailPagination {
-  padding: 8px 14px;
+  padding: 0.5rem 0.875rem;
   display: flex;
   align-items: center;
   justify-content: space-between;
-  font-size: 12px;
+  font-size: 0.75rem;
   color: #6b7280;
-  border-top: 1px solid #e5e7eb;
+  border-top: 0.062rem solid #e5e7eb;
 }
 
 .refreshBtn {
@@ -515,7 +515,7 @@
   border: none;
   color: #6b7280;
   cursor: pointer;
-  padding: 2px;
+  padding: 0.125rem;
 }
 .refreshBtn:hover {
   color: #111827;
@@ -528,58 +528,58 @@
   flex-direction: column;
   overflow: hidden;
   background: #fff;
-  border-right: 1px solid #e5e7eb;
+  border-right: 0.062rem solid #e5e7eb;
 }
 
 .threadBreadcrumb {
   display: flex;
   align-items: center;
-  gap: 6px;
-  padding: 12px 20px 10px;
-  border-bottom: 1px solid #e5e7eb;
+  gap: 0.375rem;
+  padding: 0.75rem 1.25rem 0.625rem;
+  border-bottom: 0.062rem solid #e5e7eb;
 }
 
 .breadcrumbProject {
-  font-size: 12.5px;
+  font-size: 0.781rem;
   font-weight: 600;
   color: #374151;
 }
 
 .breadcrumbSep {
   color: #9ca3af;
-  font-size: 13px;
+  font-size: 0.812rem;
 }
 
 .breadcrumbSub {
-  font-size: 12.5px;
+  font-size: 0.781rem;
   color: #6b7280;
   flex: 1;
 }
 
 .threadActions {
   display: flex;
-  gap: 4px;
+  gap: 0.25rem;
 }
 
 .threadSubject {
-  font-size: 17px;
+  font-size: 1.062rem;
   font-weight: 700;
   color: #111827;
-  padding: 16px 20px 10px;
+  padding: 1rem 1.25rem 0.625rem;
   line-height: 1.3;
   margin: 0;
 }
 
 .mainEmail {
-  padding: 0 20px 12px;
-  border-bottom: 1px solid #f3f4f6;
+  padding: 0 1.25rem 0.75rem;
+  border-bottom: 0.062rem solid #f3f4f6;
 }
 
 .mainEmailHeader {
   display: flex;
   align-items: flex-start;
-  gap: 10px;
-  margin-bottom: 10px;
+  gap: 0.625rem;
+  margin-bottom: 0.625rem;
 }
 
 .mainEmailMeta {
@@ -590,50 +590,50 @@
 .mainEmailFrom {
   display: flex;
   align-items: center;
-  gap: 6px;
+  gap: 0.375rem;
   flex-wrap: wrap;
 }
 
 .mainEmailName {
-  font-size: 13px;
+  font-size: 0.812rem;
   font-weight: 600;
   color: #111827;
 }
 
 .mainEmailAddr {
-  font-size: 12px;
+  font-size: 0.75rem;
   color: #6b7280;
 }
 
 .mainEmailTime {
-  font-size: 11.5px;
+  font-size: 0.719rem;
   color: #9ca3af;
   margin-left: auto;
 }
 
 .mainEmailTo {
-  font-size: 12px;
+  font-size: 0.75rem;
   color: #6b7280;
-  margin-top: 2px;
+  margin-top: 0.125rem;
 }
 
 .mainEmailActions {
   display: flex;
-  gap: 2px;
+  gap: 0.125rem;
   flex-shrink: 0;
 }
 
 .aiNotice {
   display: flex;
   align-items: center;
-  gap: 8px;
+  gap: 0.5rem;
   background: #fffbeb;
-  border: 1px solid #fde68a;
-  border-radius: 7px;
-  padding: 7px 12px;
-  font-size: 12px;
+  border: 0.062rem solid #fde68a;
+  border-radius: 0.438rem;
+  padding: 0.438rem 0.75rem;
+  font-size: 0.75rem;
   color: #92400e;
-  margin-bottom: 14px;
+  margin-bottom: 0.875rem;
 }
 
 .aiNoticeIcon {
@@ -643,7 +643,7 @@
 
 .viewInPanelBtn {
   margin-left: auto;
-  font-size: 12px;
+  font-size: 0.75rem;
   color: #2563eb;
   background: none;
   border: none;
@@ -652,32 +652,32 @@
   font-weight: 500;
   display: flex;
   align-items: center;
-  gap: 3px;
+  gap: 0.188rem;
   white-space: nowrap;
 }
 
 .arrowRight {
-  font-size: 14px;
+  font-size: 0.875rem;
 }
 
 .emailBody {
-  font-size: 13px;
+  font-size: 0.812rem;
   color: #374151;
   line-height: 1.6;
   display: flex;
   flex-direction: column;
-  gap: 10px;
-  margin-bottom: 16px;
+  gap: 0.625rem;
+  margin-bottom: 1rem;
 }
 
 .attachmentsRow {
   display: flex;
   flex-direction: column;
-  gap: 8px;
+  gap: 0.5rem;
 }
 
 .attachmentsLabel {
-  font-size: 12px;
+  font-size: 0.75rem;
   font-weight: 500;
   color: #6b7280;
 }
@@ -685,21 +685,21 @@
 .attachments {
   display: flex;
   flex-wrap: wrap;
-  gap: 8px;
+  gap: 0.5rem;
 }
 
 .attachmentCard {
   display: flex;
   align-items: center;
-  gap: 8px;
+  gap: 0.5rem;
   background: #f9fafb;
-  border: 1px solid #e5e7eb;
-  border-radius: 8px;
-  padding: 8px 12px;
-  font-size: 12px;
+  border: 0.062rem solid #e5e7eb;
+  border-radius: 0.5rem;
+  padding: 0.5rem 0.75rem;
+  font-size: 0.75rem;
   flex: 1;
-  min-width: 180px;
-  max-width: 260px;
+  min-width: 11.25rem;
+  max-width: 16.25rem;
 }
 
 .pdfIcon {
@@ -716,7 +716,7 @@
   display: block;
   font-weight: 500;
   color: #111827;
-  font-size: 11.5px;
+  font-size: 0.719rem;
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
@@ -725,7 +725,7 @@
 .attachmentSize {
   display: block;
   color: #9ca3af;
-  font-size: 10.5px;
+  font-size: 0.656rem;
 }
 
 .downloadBtn {
@@ -733,7 +733,7 @@
   border: none;
   color: #6b7280;
   cursor: pointer;
-  padding: 2px;
+  padding: 0.125rem;
   flex-shrink: 0;
 }
 .downloadBtn:hover {
@@ -744,19 +744,19 @@
   display: flex;
   align-items: center;
   justify-content: space-between;
-  padding: 8px 20px;
-  font-size: 12px;
+  padding: 0.5rem 1.25rem;
+  font-size: 0.75rem;
   color: #6b7280;
   background: #f9fafb;
-  border-top: 1px solid #e5e7eb;
-  border-bottom: 1px solid #e5e7eb;
+  border-top: 0.062rem solid #e5e7eb;
+  border-bottom: 0.062rem solid #e5e7eb;
 }
 
 .showBtn {
   display: flex;
   align-items: center;
-  gap: 2px;
-  font-size: 12px;
+  gap: 0.125rem;
+  font-size: 0.75rem;
   font-weight: 500;
   color: #2563eb;
   background: none;
@@ -766,17 +766,17 @@
 }
 
 .threadReplies {
-  padding: 12px 20px;
+  padding: 0.75rem 1.25rem;
   display: flex;
   flex-direction: column;
-  gap: 14px;
+  gap: 0.875rem;
 }
 
 .replyItem {
   display: flex;
-  gap: 10px;
-  border-radius: 8px;
-  padding: 8px 6px;
+  gap: 0.625rem;
+  border-radius: 0.5rem;
+  padding: 0.5rem 0.375rem;
   transition: background 0.15s;
 }
 
@@ -796,17 +796,17 @@
 .replyHeader {
   display: flex;
   align-items: center;
-  gap: 6px;
-  margin-bottom: 4px;
+  gap: 0.375rem;
+  margin-bottom: 0.25rem;
   flex-wrap: nowrap;
 }
 
 .replyHeaderClickable {
   cursor: pointer;
   user-select: none;
-  border-radius: 6px;
-  padding: 2px 4px;
-  margin: -2px -4px;
+  border-radius: 0.375rem;
+  padding: 0.125rem 0.25rem;
+  margin: -0.125rem -0.25rem;
 }
 
 .replyHeaderClickable:hover {
@@ -814,7 +814,7 @@
 }
 
 .replySnippet {
-  font-size: 11.5px;
+  font-size: 0.719rem;
   color: #9ca3af;
   flex: 1;
   min-width: 0;
@@ -824,7 +824,7 @@
 }
 
 .replyChevron {
-  font-size: 16px;
+  font-size: 1rem;
   color: #9ca3af;
   flex-shrink: 0;
   transition: transform 0.2s;
@@ -835,35 +835,35 @@
 }
 
 .replyToRow {
-  margin-bottom: 6px;
+  margin-bottom: 0.375rem;
 }
 
 .replyName {
-  font-size: 12.5px;
+  font-size: 0.781rem;
   font-weight: 600;
   color: #111827;
 }
 
 .replyTo {
-  font-size: 11.5px;
+  font-size: 0.719rem;
   color: #9ca3af;
 }
 
 .replyTime {
-  font-size: 11.5px;
+  font-size: 0.719rem;
   color: #9ca3af;
   flex-shrink: 0;
   margin-left: auto;
 }
 
 .replyBody {
-  font-size: 12.5px;
+  font-size: 0.781rem;
   color: #374151;
   line-height: 1.5;
   margin: 0;
   white-space: pre-wrap;
   word-break: break-word;
-  max-height: 300px;
+  max-height: 18.75rem;
   overflow-y: auto;
 }
 
@@ -871,30 +871,30 @@
   width: 100%;
   border: none;
   display: block;
-  min-height: 60px;
-  max-height: 400px;
+  min-height: 3.75rem;
+  max-height: 25rem;
   overflow-y: auto;
 }
 
 /* ── Per-message action bar ── */
 .msgActionBar {
   display: flex;
-  gap: 6px;
-  margin-top: 10px;
-  padding-top: 8px;
-  border-top: 1px solid #f3f4f6;
+  gap: 0.375rem;
+  margin-top: 0.625rem;
+  padding-top: 0.5rem;
+  border-top: 0.062rem solid #f3f4f6;
 }
 
 .msgActionBtn {
   display: flex;
   align-items: center;
-  gap: 4px;
-  padding: 4px 10px;
-  border: 1px solid #e5e7eb;
-  border-radius: 6px;
+  gap: 0.25rem;
+  padding: 0.25rem 0.625rem;
+  border: 0.062rem solid #e5e7eb;
+  border-radius: 0.375rem;
   background: #fff;
   color: #374151;
-  font-size: 12px;
+  font-size: 0.75rem;
   cursor: pointer;
   transition: background 0.12s, border-color 0.12s;
 }
@@ -919,18 +919,18 @@
 .extractBtnRow {
   display: flex;
   align-items: center;
-  gap: 8px;
+  gap: 0.5rem;
 }
 
 .draftBadge {
   display: inline-flex;
   align-items: center;
-  gap: 3px;
-  padding: 2px 8px;
+  gap: 0.188rem;
+  padding: 0.125rem 0.5rem;
   background: #fffbeb;
-  border: 1px solid #fcd34d;
-  border-radius: 12px;
-  font-size: 11px;
+  border: 0.062rem solid #fcd34d;
+  border-radius: 0.75rem;
+  font-size: 0.688rem;
   color: #92400e;
   font-weight: 500;
 }
@@ -938,18 +938,18 @@
 .savedBadge {
   display: inline-flex;
   align-items: center;
-  gap: 3px;
-  padding: 2px 8px;
+  gap: 0.188rem;
+  padding: 0.125rem 0.5rem;
   background: #f0fdf4;
-  border: 1px solid #86efac;
-  border-radius: 12px;
-  font-size: 11px;
+  border: 0.062rem solid #86efac;
+  border-radius: 0.75rem;
+  font-size: 0.688rem;
   color: #166534;
   font-weight: 500;
 }
 
 .draftSavingBadge {
-  font-size: 11px;
+  font-size: 0.688rem;
   color: #9ca3af;
   font-style: italic;
 }
@@ -967,10 +967,10 @@
 
 .forwardModal {
   background: #fff;
-  border-radius: 12px;
-  width: 520px;
+  border-radius: 0.75rem;
+  width: 32.5rem;
   max-width: 95vw;
-  box-shadow: 0 20px 60px rgba(0, 0, 0, 0.18);
+  box-shadow: 0 1.25rem 3.75rem rgba(0, 0, 0, 0.18);
   display: flex;
   flex-direction: column;
   overflow: hidden;
@@ -980,12 +980,12 @@
   display: flex;
   align-items: center;
   justify-content: space-between;
-  padding: 16px 20px 12px;
-  border-bottom: 1px solid #f3f4f6;
+  padding: 1rem 1.25rem 0.75rem;
+  border-bottom: 0.062rem solid #f3f4f6;
 }
 
 .forwardModalTitle {
-  font-size: 14px;
+  font-size: 0.875rem;
   font-weight: 600;
   color: #111827;
 }
@@ -993,11 +993,11 @@
 .forwardModalClose {
   background: none;
   border: none;
-  font-size: 20px;
+  font-size: 1.25rem;
   color: #9ca3af;
   cursor: pointer;
   line-height: 1;
-  padding: 0 4px;
+  padding: 0 0.25rem;
 }
 
 .forwardModalClose:hover {
@@ -1005,14 +1005,14 @@
 }
 
 .forwardModalBody {
-  padding: 16px 20px;
+  padding: 1rem 1.25rem;
   display: flex;
   flex-direction: column;
-  gap: 8px;
+  gap: 0.5rem;
 }
 
 .forwardLabel {
-  font-size: 11.5px;
+  font-size: 0.719rem;
   font-weight: 600;
   color: #6b7280;
   text-transform: uppercase;
@@ -1021,10 +1021,10 @@
 
 .forwardToInput {
   width: 100%;
-  padding: 8px 10px;
-  border: 1px solid #e5e7eb;
-  border-radius: 7px;
-  font-size: 13px;
+  padding: 0.5rem 0.625rem;
+  border: 0.062rem solid #e5e7eb;
+  border-radius: 0.438rem;
+  font-size: 0.812rem;
   color: #111827;
   outline: none;
   box-sizing: border-box;
@@ -1032,15 +1032,15 @@
 
 .forwardToInput:focus {
   border-color: #4f6bed;
-  box-shadow: 0 0 0 3px rgba(79, 107, 237, 0.08);
+  box-shadow: 0 0 0 0.188rem rgba(79, 107, 237, 0.08);
 }
 
 .forwardBodyInput {
   width: 100%;
-  padding: 8px 10px;
-  border: 1px solid #e5e7eb;
-  border-radius: 7px;
-  font-size: 12.5px;
+  padding: 0.5rem 0.625rem;
+  border: 0.062rem solid #e5e7eb;
+  border-radius: 0.438rem;
+  font-size: 0.781rem;
   color: #374151;
   resize: vertical;
   outline: none;
@@ -1051,25 +1051,25 @@
 
 .forwardBodyInput:focus {
   border-color: #4f6bed;
-  box-shadow: 0 0 0 3px rgba(79, 107, 237, 0.08);
+  box-shadow: 0 0 0 0.188rem rgba(79, 107, 237, 0.08);
 }
 
 .forwardModalFooter {
   display: flex;
   align-items: center;
   justify-content: flex-end;
-  gap: 8px;
-  padding: 12px 20px 16px;
-  border-top: 1px solid #f3f4f6;
+  gap: 0.5rem;
+  padding: 0.75rem 1.25rem 1rem;
+  border-top: 0.062rem solid #f3f4f6;
 }
 
 .forwardCancelBtn {
-  padding: 7px 16px;
-  border: 1px solid #e5e7eb;
-  border-radius: 7px;
+  padding: 0.438rem 1rem;
+  border: 0.062rem solid #e5e7eb;
+  border-radius: 0.438rem;
   background: #fff;
   color: #374151;
-  font-size: 13px;
+  font-size: 0.812rem;
   cursor: pointer;
 }
 
@@ -1078,12 +1078,12 @@
 }
 
 .forwardSendBtn {
-  padding: 7px 20px;
+  padding: 0.438rem 1.25rem;
   border: none;
-  border-radius: 7px;
+  border-radius: 0.438rem;
   background: #4f6bed;
   color: #fff;
-  font-size: 13px;
+  font-size: 0.812rem;
   font-weight: 500;
   cursor: pointer;
   transition: background 0.15s;
@@ -1109,35 +1109,35 @@
 .emailBodyUnavailable {
   color: #9ca3af;
   font-style: italic;
-  font-size: 13px;
+  font-size: 0.812rem;
 }
 
 .emailIframe {
   width: 100%;
   border: none;
   display: block;
-  min-height: 200px;
+  min-height: 12.5rem;
 }
 
 /* ── Reply Box ── */
 .replyBox {
-  border-top: 1px solid #e5e7eb;
-  padding: 10px 16px;
+  border-top: 0.062rem solid #e5e7eb;
+  padding: 0.625rem 1rem;
   background: #fff;
 }
 
 .replyInputRow {
   display: flex;
   align-items: center;
-  gap: 10px;
-  margin-bottom: 8px;
+  gap: 0.625rem;
+  margin-bottom: 0.5rem;
 }
 
 .replyInput {
   flex: 1;
   border: none;
   outline: none;
-  font-size: 13px;
+  font-size: 0.812rem;
   color: #374151;
   font-family: inherit;
   background: transparent;
@@ -1149,7 +1149,7 @@
 .replyToolbar {
   display: flex;
   align-items: center;
-  gap: 4px;
+  gap: 0.25rem;
 }
 
 .toolbarSpacer {
@@ -1161,9 +1161,9 @@
   border: none;
   color: #6b7280;
   cursor: pointer;
-  padding: 4px 6px;
-  border-radius: 5px;
-  font-size: 15px;
+  padding: 0.25rem 0.375rem;
+  border-radius: 0.312rem;
+  font-size: 0.938rem;
   display: flex;
   align-items: center;
 }
@@ -1175,13 +1175,13 @@
 .sendBtn {
   display: flex;
   align-items: center;
-  gap: 4px;
+  gap: 0.25rem;
   background: #2563eb;
   color: #fff;
   border: none;
-  border-radius: 7px;
-  padding: 7px 16px;
-  font-size: 13px;
+  border-radius: 0.438rem;
+  padding: 0.438rem 1rem;
+  font-size: 0.812rem;
   font-weight: 600;
   cursor: pointer;
   font-family: inherit;
@@ -1203,16 +1203,16 @@
   display: flex;
   align-items: center;
   justify-content: space-between;
-  padding: 12px 16px 8px;
-  border-bottom: 1px solid #e5e7eb;
-  gap: 10px;
+  padding: 0.75rem 1rem 0.5rem;
+  border-bottom: 0.062rem solid #e5e7eb;
+  gap: 0.625rem;
 }
 
 .rightPanelTitle {
   display: flex;
   align-items: center;
-  gap: 6px;
-  font-size: 13px;
+  gap: 0.375rem;
+  font-size: 0.812rem;
   font-weight: 600;
   color: #374151;
 }
@@ -1224,19 +1224,19 @@
 .reviewCount {
   background: #e5e7eb;
   color: #374151;
-  font-size: 11px;
+  font-size: 0.688rem;
   font-weight: 700;
-  border-radius: 10px;
-  padding: 1px 7px;
+  border-radius: 0.625rem;
+  padding: 0.062rem 0.438rem;
 }
 
 .createReviewBtn {
   background: #111827;
   color: #fff;
   border: none;
-  border-radius: 7px;
-  padding: 6px 12px;
-  font-size: 12px;
+  border-radius: 0.438rem;
+  padding: 0.375rem 0.75rem;
+  font-size: 0.75rem;
   font-weight: 600;
   cursor: pointer;
   white-space: nowrap;
@@ -1249,26 +1249,26 @@
 .aiDraftNotice {
   display: flex;
   align-items: center;
-  gap: 6px;
-  font-size: 11.5px;
+  gap: 0.375rem;
+  font-size: 0.719rem;
   color: #6b7280;
-  padding: 7px 16px;
-  border-bottom: 1px solid #f3f4f6;
+  padding: 0.438rem 1rem;
+  border-bottom: 0.062rem solid #f3f4f6;
 }
 
 .reviewItems {
   flex: 1;
   overflow-y: auto;
-  padding: 12px 14px;
+  padding: 0.75rem 0.875rem;
   display: flex;
   flex-direction: column;
-  gap: 12px;
+  gap: 0.75rem;
 }
 
 .reviewCard {
-  border: 1px solid #e5e7eb;
-  border-radius: 10px;
-  padding: 12px 14px;
+  border: 0.062rem solid #e5e7eb;
+  border-radius: 0.625rem;
+  padding: 0.75rem 0.875rem;
   background: #fff;
 }
 
@@ -1276,12 +1276,12 @@
   display: flex;
   align-items: flex-start;
   justify-content: space-between;
-  gap: 6px;
-  margin-bottom: 10px;
+  gap: 0.375rem;
+  margin-bottom: 0.625rem;
 }
 
 .reviewCardTitle {
-  font-size: 13px;
+  font-size: 0.812rem;
   font-weight: 600;
   color: #111827;
   line-height: 1.35;
@@ -1290,23 +1290,23 @@
 .reviewCardMeta {
   display: flex;
   flex-direction: column;
-  gap: 8px;
+  gap: 0.5rem;
 }
 
 .reviewTagRow {
   display: flex;
   align-items: center;
-  gap: 8px;
+  gap: 0.5rem;
   flex-wrap: wrap;
 }
 
 .reviewTag {
   display: inline-flex;
   align-items: center;
-  font-size: 11px;
+  font-size: 0.688rem;
   font-weight: 600;
-  border-radius: 20px;
-  padding: 3px 9px;
+  border-radius: 1.25rem;
+  padding: 0.188rem 0.562rem;
 }
 
 .reviewTagMep {
@@ -1327,11 +1327,11 @@
 .reviewStatus {
   display: inline-flex;
   align-items: center;
-  gap: 2px;
-  font-size: 11.5px;
+  gap: 0.125rem;
+  font-size: 0.719rem;
   font-weight: 600;
-  border-radius: 20px;
-  padding: 3px 10px;
+  border-radius: 1.25rem;
+  padding: 0.188rem 0.625rem;
   margin-left: auto;
 }
 
@@ -1353,20 +1353,20 @@
 .reviewMetaRow {
   display: flex;
   align-items: center;
-  gap: 8px;
+  gap: 0.5rem;
 }
 
 .reviewMetaLabel {
-  font-size: 11.5px;
+  font-size: 0.719rem;
   color: #9ca3af;
-  width: 60px;
+  width: 3.75rem;
   flex-shrink: 0;
 }
 
 .reviewMetaValue {
   display: flex;
   align-items: center;
-  font-size: 12px;
+  font-size: 0.75rem;
   color: #374151;
   font-weight: 500;
 }
@@ -1375,37 +1375,37 @@
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  width: 20px;
-  height: 20px;
+  width: 1.25rem;
+  height: 1.25rem;
   border-radius: 50%;
   background: #e5e7eb;
   color: #374151;
-  font-size: 10px;
+  font-size: 0.625rem;
   font-weight: 700;
-  margin-right: 6px;
+  margin-right: 0.375rem;
 }
 
 .evidenceLink {
   color: #2563eb;
-  font-size: 11.5px;
+  font-size: 0.719rem;
   text-decoration: underline;
-  text-underline-offset: 2px;
+  text-underline-offset: 0.125rem;
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
-  max-width: 160px;
+  max-width: 10rem;
 }
 
 .addReviewBtn {
   display: flex;
   align-items: center;
-  gap: 5px;
+  gap: 0.312rem;
   width: 100%;
   background: none;
   border: none;
-  border-top: 1px solid #e5e7eb;
-  padding: 12px 16px;
-  font-size: 12.5px;
+  border-top: 0.062rem solid #e5e7eb;
+  padding: 0.75rem 1rem;
+  font-size: 0.781rem;
   color: #6b7280;
   cursor: pointer;
   font-family: inherit;
@@ -1429,24 +1429,24 @@
 }
 
 .avatarSm {
-  width: 32px;
-  height: 32px;
-  min-width: 32px;
-  font-size: 11px;
+  width: 2rem;
+  height: 2rem;
+  min-width: 2rem;
+  font-size: 0.688rem;
 }
 
 .avatarMd {
-  width: 34px;
-  height: 34px;
-  min-width: 34px;
-  font-size: 12px;
+  width: 2.125rem;
+  height: 2.125rem;
+  min-width: 2.125rem;
+  font-size: 0.75rem;
 }
 
 .avatarLg {
-  width: 38px;
-  height: 38px;
-  min-width: 38px;
-  font-size: 13px;
+  width: 2.375rem;
+  height: 2.375rem;
+  min-width: 2.375rem;
+  font-size: 0.812rem;
 }
 
 .avatarBlue      { background: #4f6bed; }
@@ -1455,30 +1455,30 @@
 .avatarDark      { background: #1f2937; }
 .avatarMediumDark{ background: #374151; }
 
-.iconMr3 { margin-right: 3px; }
-.iconMr4 { margin-right: 4px; }
-.iconMl4 { margin-left:  4px; }
+.iconMr3 { margin-right: 0.188rem; }
+.iconMr4 { margin-right: 0.25rem; }
+.iconMl4 { margin-left:  0.25rem; }
 
-.iconSize11 { font-size: 11px; }
-.iconSize12 { font-size: 12px; }
-.iconSize13 { font-size: 13px; }
-.iconSize14 { font-size: 14px; }
-.iconSize15 { font-size: 15px; }
-.iconSize16 { font-size: 16px; }
-.iconSize18 { font-size: 18px; }
-.iconSize20 { font-size: 20px; }
+.iconSize11 { font-size: 0.688rem; }
+.iconSize12 { font-size: 0.75rem; }
+.iconSize13 { font-size: 0.812rem; }
+.iconSize14 { font-size: 0.875rem; }
+.iconSize15 { font-size: 0.938rem; }
+.iconSize16 { font-size: 1rem; }
+.iconSize18 { font-size: 1.125rem; }
+.iconSize20 { font-size: 1.25rem; }
 
 .iconBtn {
   background: none;
   border: none;
   color: #9ca3af;
   cursor: pointer;
-  padding: 4px;
-  border-radius: 5px;
+  padding: 0.25rem;
+  border-radius: 0.312rem;
   display: flex;
   align-items: center;
   justify-content: center;
-  font-size: 15px;
+  font-size: 0.938rem;
 }
 .iconBtn:hover {
   background: #f3f4f6;
@@ -1509,10 +1509,10 @@
   flex-direction: column;
   align-items: center;
   justify-content: center;
-  gap: 8px;
-  padding: 40px 16px;
+  gap: 0.5rem;
+  padding: 2.5rem 1rem;
   color: #9ca3af;
-  font-size: 12.5px;
+  font-size: 0.781rem;
 }
 
 .emptyState {
@@ -1520,10 +1520,10 @@
   flex-direction: column;
   align-items: center;
   justify-content: center;
-  gap: 10px;
-  padding: 48px 16px;
+  gap: 0.625rem;
+  padding: 3rem 1rem;
   color: #9ca3af;
-  font-size: 13px;
+  font-size: 0.812rem;
   text-align: center;
 }
 .emptyState p { margin: 0; }
@@ -1533,11 +1533,11 @@
   flex-direction: column;
   align-items: center;
   justify-content: center;
-  gap: 10px;
+  gap: 0.625rem;
   flex: 1;
   height: 100%;
   color: #9ca3af;
-  font-size: 13px;
+  font-size: 0.812rem;
   text-align: center;
 }
 .emptyThread p { margin: 0; }
@@ -1547,10 +1547,10 @@
   flex-direction: column;
   align-items: center;
   justify-content: center;
-  gap: 10px;
-  padding: 40px 16px;
+  gap: 0.625rem;
+  padding: 2.5rem 1rem;
   color: #9ca3af;
-  font-size: 13px;
+  font-size: 0.812rem;
   text-align: center;
 }
 .emptyReview p { margin: 0; }
@@ -1559,19 +1559,19 @@
   display: flex;
   align-items: center;
   justify-content: center;
-  padding: 32px 20px;
+  padding: 2rem 1.25rem;
 }
 
 .extractBtn {
   display: inline-flex;
   align-items: center;
-  gap: 5px;
+  gap: 0.312rem;
   background: #111827;
   color: #fff;
   border: none;
-  border-radius: 7px;
-  padding: 7px 16px;
-  font-size: 12.5px;
+  border-radius: 0.438rem;
+  padding: 0.438rem 1rem;
+  font-size: 0.781rem;
   font-weight: 600;
   cursor: pointer;
   font-family: inherit;
@@ -1583,13 +1583,13 @@
 .connectGmailBtn {
   display: inline-flex;
   align-items: center;
-  gap: 6px;
+  gap: 0.375rem;
   background: #2563eb;
   color: #fff;
   border: none;
-  border-radius: 7px;
-  padding: 7px 16px;
-  font-size: 12.5px;
+  border-radius: 0.438rem;
+  padding: 0.438rem 1rem;
+  font-size: 0.781rem;
   font-weight: 600;
   cursor: pointer;
   font-family: inherit;
@@ -1602,7 +1602,7 @@
   cursor: pointer;
   border: none;
   font-family: inherit;
-  gap: 5px;
+  gap: 0.312rem;
 }
 .connectChipBtn:hover {
   background: #e5e7eb;
@@ -1621,23 +1621,23 @@
 
 .reviewMetaNone {
   color: #9ca3af;
-  font-size: 12px;
+  font-size: 0.75rem;
 }
 
 .reviewNotes {
-  font-size: 11.5px;
+  font-size: 0.719rem;
   color: #6b7280;
   font-weight: 400;
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
-  max-width: 160px;
+  max-width: 10rem;
 }
 
 /* ── Responsive ── */
-@media (max-width: 1200px) {
+@media (max-width: 75rem) {
   .appShell {
-    grid-template-columns: 60px 260px 1fr 300px;
+    grid-template-columns: 3.75rem 16.25rem 1fr 18.75rem;
   }
   .sidebarLabel,
   .logoText {
@@ -1648,20 +1648,20 @@
   }
   .sidebarItem {
     justify-content: center;
-    padding: 10px;
+    padding: 0.625rem;
   }
   .sidebarIcon {
-    font-size: 20px;
+    font-size: 1.25rem;
   }
   .sidebarLogo {
     justify-content: center;
-    padding: 14px 8px;
+    padding: 0.875rem 0.5rem;
   }
 }
 
-@media (max-width: 992px) {
+@media (max-width: 62rem) {
   .appShell {
-    grid-template-columns: 60px 1fr 280px;
+    grid-template-columns: 3.75rem 1fr 17.5rem;
     grid-template-areas:
       "sidebar topnav topnav"
       "sidebar emailpanel rightpanel";
@@ -1671,9 +1671,9 @@
   }
 }
 
-@media (max-width: 768px) {
+@media (max-width: 48rem) {
   .appShell {
-    grid-template-columns: 60px 1fr;
+    grid-template-columns: 3.75rem 1fr;
     grid-template-areas:
       "sidebar topnav"
       "sidebar emailpanel";
@@ -1690,10 +1690,10 @@
 /* ── Edit Mode ── */
 .editTitleInput {
   flex: 1;
-  border: 1px solid #d1d5db;
-  border-radius: 6px;
-  padding: 4px 8px;
-  font-size: 13px;
+  border: 0.062rem solid #d1d5db;
+  border-radius: 0.375rem;
+  padding: 0.25rem 0.5rem;
+  font-size: 0.812rem;
   font-weight: 600;
   color: #111827;
   font-family: inherit;
@@ -1702,12 +1702,12 @@
 }
 .editTitleInput:focus {
   border-color: #2563eb;
-  box-shadow: 0 0 0 2px rgba(37, 99, 235, 0.1);
+  box-shadow: 0 0 0 0.125rem rgba(37, 99, 235, 0.1);
 }
 
 .editCardActions {
   display: flex;
-  gap: 6px;
+  gap: 0.375rem;
   flex-shrink: 0;
   margin-left: auto;
 }
@@ -1716,9 +1716,9 @@
   background: #2563eb;
   color: #fff;
   border: none;
-  border-radius: 6px;
-  padding: 4px 10px;
-  font-size: 11.5px;
+  border-radius: 0.375rem;
+  padding: 0.25rem 0.625rem;
+  font-size: 0.719rem;
   font-weight: 600;
   cursor: pointer;
   font-family: inherit;
@@ -1729,9 +1729,9 @@
   background: #f3f4f6;
   color: #374151;
   border: none;
-  border-radius: 6px;
-  padding: 4px 10px;
-  font-size: 11.5px;
+  border-radius: 0.375rem;
+  padding: 0.25rem 0.625rem;
+  font-size: 0.719rem;
   font-weight: 600;
   cursor: pointer;
   font-family: inherit;
@@ -1739,11 +1739,11 @@
 .editCancelBtn:hover { background: #e5e7eb; }
 
 .editSelect {
-  font-size: 11.5px;
+  font-size: 0.719rem;
   font-weight: 600;
-  border: 1px solid #d1d5db;
-  border-radius: 20px;
-  padding: 3px 8px;
+  border: 0.062rem solid #d1d5db;
+  border-radius: 1.25rem;
+  padding: 0.188rem 0.5rem;
   color: #374151;
   background: #fff;
   cursor: pointer;
@@ -1755,15 +1755,15 @@
 .reviewStatusEditing {
   color: #374151;
   background: #f3f4f6;
-  border: 1px solid #d1d5db;
+  border: 0.062rem solid #d1d5db;
 }
 
 .editInputInline {
   flex: 1;
-  border: 1px solid #d1d5db;
-  border-radius: 5px;
-  padding: 3px 7px;
-  font-size: 12px;
+  border: 0.062rem solid #d1d5db;
+  border-radius: 0.312rem;
+  padding: 0.188rem 0.438rem;
+  font-size: 0.75rem;
   color: #374151;
   font-family: inherit;
   outline: none;
@@ -1772,13 +1772,13 @@
 }
 .editInputInline:focus {
   border-color: #2563eb;
-  box-shadow: 0 0 0 2px rgba(37, 99, 235, 0.1);
+  box-shadow: 0 0 0 0.125rem rgba(37, 99, 235, 0.1);
 }
 
 .editAttachmentsCol {
   display: flex;
   flex-direction: column;
-  gap: 6px;
+  gap: 0.375rem;
   flex: 1;
   min-width: 0;
 }
@@ -1786,18 +1786,18 @@
 .editAttachChips {
   display: flex;
   flex-wrap: wrap;
-  gap: 4px;
+  gap: 0.25rem;
 }
 
 .attachChipEdit {
   display: inline-flex;
   align-items: center;
-  gap: 4px;
+  gap: 0.25rem;
   background: #f0f4ff;
-  border: 1px solid #bfdbfe;
-  border-radius: 20px;
-  padding: 2px 6px 2px 6px;
-  font-size: 11px;
+  border: 0.062rem solid #bfdbfe;
+  border-radius: 1.25rem;
+  padding: 0.125rem 0.375rem 0.125rem 0.375rem;
+  font-size: 0.688rem;
   color: #1d4ed8;
 }
 
@@ -1807,9 +1807,9 @@
   color: #9ca3af;
   cursor: pointer;
   padding: 0;
-  font-size: 13px;
+  font-size: 0.812rem;
   line-height: 1;
-  margin-left: 2px;
+  margin-left: 0.125rem;
   display: flex;
   align-items: center;
 }
@@ -1817,16 +1817,16 @@
 
 .addAttachRow {
   display: flex;
-  gap: 4px;
+  gap: 0.25rem;
   align-items: center;
 }
 
 .editInputSm {
   width: 100%;
-  border: 1px solid #d1d5db;
-  border-radius: 6px;
-  padding: 7px 10px;
-  font-size: 12px;
+  border: 0.062rem solid #d1d5db;
+  border-radius: 0.375rem;
+  padding: 0.438rem 0.625rem;
+  font-size: 0.75rem;
   color: #374151;
   font-family: inherit;
   outline: none;
@@ -1836,10 +1836,10 @@
 
 .addAttachBtn {
   background: #f3f4f6;
-  border: 1px solid #d1d5db;
-  border-radius: 5px;
-  padding: 3px 8px;
-  font-size: 11px;
+  border: 0.062rem solid #d1d5db;
+  border-radius: 0.312rem;
+  padding: 0.188rem 0.5rem;
+  font-size: 0.688rem;
   color: #374151;
   cursor: pointer;
   font-family: inherit;
@@ -1850,19 +1850,19 @@
 .attachChipList {
   display: flex;
   flex-wrap: wrap;
-  gap: 4px;
+  gap: 0.25rem;
   align-items: center;
 }
 
 .attachChip {
   display: inline-flex;
   align-items: center;
-  gap: 3px;
+  gap: 0.188rem;
   background: #f0f4ff;
-  border: 1px solid #bfdbfe;
-  border-radius: 20px;
-  padding: 2px 8px 2px 6px;
-  font-size: 11px;
+  border: 0.062rem solid #bfdbfe;
+  border-radius: 1.25rem;
+  padding: 0.125rem 0.5rem 0.125rem 0.375rem;
+  font-size: 0.688rem;
   color: #1d4ed8;
   font-weight: 500;
 }
@@ -1871,24 +1871,24 @@
 .projectSaveRow {
   display: flex;
   align-items: center;
-  gap: 6px;
-  padding: 8px 14px;
-  border-bottom: 1px solid #e5e7eb;
+  gap: 0.375rem;
+  padding: 0.5rem 0.875rem;
+  border-bottom: 0.062rem solid #e5e7eb;
   background: #f9fafb;
 }
 
 .noProjectsHint {
   flex: 1;
-  font-size: 11.5px;
+  font-size: 0.719rem;
   color: #9ca3af;
   font-style: italic;
 }
 
 .newProjectIconBtn {
   background: #f3f4f6;
-  border: 1px solid #d1d5db;
-  border-radius: 6px;
-  padding: 4px 6px;
+  border: 0.062rem solid #d1d5db;
+  border-radius: 0.375rem;
+  padding: 0.25rem 0.375rem;
   cursor: pointer;
   color: #374151;
   display: flex;
@@ -1899,9 +1899,9 @@
 
 .refreshIconBtn {
   background: none;
-  border: 1px solid #e5e7eb;
-  border-radius: 6px;
-  padding: 4px 6px;
+  border: 0.062rem solid #e5e7eb;
+  border-radius: 0.375rem;
+  padding: 0.25rem 0.375rem;
   cursor: pointer;
   color: #6b7280;
   display: flex;
@@ -1915,17 +1915,17 @@
 .dataRefreshBar {
   display: flex;
   align-items: center;
-  gap: 6px;
-  padding: 5px 14px;
-  border-bottom: 1px solid #f3f4f6;
+  gap: 0.375rem;
+  padding: 0.312rem 0.875rem;
+  border-bottom: 0.062rem solid #f3f4f6;
   background: #fafafa;
 }
 
 .dataRefreshLabel {
   display: flex;
   align-items: center;
-  gap: 5px;
-  font-size: 11.5px;
+  gap: 0.312rem;
+  font-size: 0.719rem;
   font-weight: 500;
   color: #6b7280;
   flex: 1;
@@ -1934,14 +1934,14 @@
 .dataRefreshCount {
   background: #e5e7eb;
   color: #374151;
-  font-size: 10.5px;
+  font-size: 0.656rem;
   font-weight: 700;
-  border-radius: 10px;
-  padding: 1px 6px;
+  border-radius: 0.625rem;
+  padding: 0.062rem 0.375rem;
 }
 
 .dataRefreshEmpty {
-  font-size: 11px;
+  font-size: 0.688rem;
   color: #d1d5db;
   font-style: italic;
 }
@@ -1949,10 +1949,10 @@
 .projectSelector {
   flex: 1;
   min-width: 0;
-  border: 1px solid #d1d5db;
-  border-radius: 7px;
-  padding: 5px 8px;
-  font-size: 12px;
+  border: 0.062rem solid #d1d5db;
+  border-radius: 0.438rem;
+  padding: 0.312rem 0.5rem;
+  font-size: 0.75rem;
   color: #374151;
   background: #fff;
   font-family: inherit;
@@ -1968,9 +1968,9 @@
   background: #2563eb;
   color: #fff;
   border: none;
-  border-radius: 7px;
-  padding: 5px 12px;
-  font-size: 12px;
+  border-radius: 0.438rem;
+  padding: 0.312rem 0.75rem;
+  font-size: 0.75rem;
   font-weight: 600;
   cursor: pointer;
   font-family: inherit;
@@ -1983,37 +1983,37 @@
 .threadAttachmentsStrip {
   display: flex;
   align-items: flex-start;
-  gap: 8px;
-  padding: 8px 14px;
-  border-bottom: 1px solid #f3f4f6;
+  gap: 0.5rem;
+  padding: 0.5rem 0.875rem;
+  border-bottom: 0.062rem solid #f3f4f6;
   background: #fffbeb;
 }
 
 .threadAttachLabel {
   display: inline-flex;
   align-items: center;
-  font-size: 11px;
+  font-size: 0.688rem;
   font-weight: 600;
   color: #92400e;
   white-space: nowrap;
-  padding-top: 2px;
+  padding-top: 0.125rem;
   flex-shrink: 0;
 }
 
 .threadAttachList {
   display: flex;
   flex-wrap: wrap;
-  gap: 5px;
+  gap: 0.312rem;
 }
 
 .threadAttachChip {
   display: inline-flex;
   align-items: center;
   background: #fef3c7;
-  border: 1px solid #fde68a;
-  border-radius: 20px;
-  padding: 2px 8px 2px 6px;
-  font-size: 11px;
+  border: 0.062rem solid #fde68a;
+  border-radius: 1.25rem;
+  padding: 0.125rem 0.5rem 0.125rem 0.375rem;
+  font-size: 0.688rem;
   color: #92400e;
   font-weight: 500;
 }
@@ -2028,10 +2028,10 @@
 /* ── editSelectInline (project/stakeholder dropdowns inside meta rows) ── */
 .editSelectInline {
   width: 100%;
-  border: 1px solid #d1d5db;
-  border-radius: 6px;
-  padding: 7px 10px;
-  font-size: 12px;
+  border: 0.062rem solid #d1d5db;
+  border-radius: 0.375rem;
+  padding: 0.438rem 0.625rem;
+  font-size: 0.75rem;
   color: #374151;
   background: #fff;
   font-family: inherit;
@@ -2041,13 +2041,13 @@
 }
 .editSelectInline:focus {
   border-color: #2563eb;
-  box-shadow: 0 0 0 2px rgba(37, 99, 235, 0.1);
+  box-shadow: 0 0 0 0.125rem rgba(37, 99, 235, 0.1);
 }
 
 .stakeholderEditRow {
   display: flex;
   align-items: center;
-  gap: 5px;
+  gap: 0.312rem;
   flex: 1;
   min-width: 0;
 }
@@ -2056,7 +2056,7 @@
 .taskUploadCol {
   display: flex;
   flex-direction: column;
-  gap: 5px;
+  gap: 0.312rem;
   flex: 1;
   min-width: 0;
 }
@@ -2065,10 +2065,10 @@
   display: inline-flex;
   align-items: center;
   background: #f0fdf4;
-  border: 1px solid #bbf7d0;
-  border-radius: 20px;
-  padding: 2px 6px 2px 6px;
-  font-size: 11px;
+  border: 0.062rem solid #bbf7d0;
+  border-radius: 1.25rem;
+  padding: 0.125rem 0.375rem 0.125rem 0.375rem;
+  font-size: 0.688rem;
   color: #166534;
   font-weight: 500;
   max-width: 100%;
@@ -2080,7 +2080,7 @@
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
-  margin: 0 4px;
+  margin: 0 0.25rem;
 }
 
 .taskAttachDownload {
@@ -2099,10 +2099,10 @@
   display: inline-flex;
   align-items: center;
   background: #f3f4f6;
-  border: 1px dashed #d1d5db;
-  border-radius: 6px;
-  padding: 4px 10px;
-  font-size: 11.5px;
+  border: 0.062rem dashed #d1d5db;
+  border-radius: 0.375rem;
+  padding: 0.25rem 0.625rem;
+  font-size: 0.719rem;
   color: #374151;
   cursor: pointer;
   font-family: inherit;
@@ -2116,7 +2116,7 @@
 .taskUploadBtn:disabled { opacity: 0.6; cursor: default; }
 
 .taskUploadHint {
-  font-size: 11px;
+  font-size: 0.688rem;
   color: #9ca3af;
   font-style: italic;
 }
@@ -2125,22 +2125,22 @@
 .createProjectForm {
   display: flex;
   flex-direction: column;
-  gap: 8px;
-  padding: 12px 14px;
+  gap: 0.5rem;
+  padding: 0.75rem 0.875rem;
   background: #f0f9ff;
-  border-bottom: 1px solid #bae6fd;
+  border-bottom: 0.062rem solid #bae6fd;
 }
 
 .createProjectFormHeader {
   display: flex;
   align-items: center;
-  gap: 6px;
+  gap: 0.375rem;
 }
 
 .createProjectFormTitle {
   display: flex;
   align-items: center;
-  font-size: 12.5px;
+  font-size: 0.781rem;
   font-weight: 600;
   color: #0369a1;
   flex: 1;
@@ -2151,9 +2151,9 @@
   align-items: center;
   background: #dbeafe;
   color: #1d4ed8;
-  border-radius: 20px;
-  padding: 2px 8px;
-  font-size: 10.5px;
+  border-radius: 1.25rem;
+  padding: 0.125rem 0.5rem;
+  font-size: 0.656rem;
   font-weight: 600;
 }
 
@@ -2162,7 +2162,7 @@
   border: none;
   color: #6b7280;
   cursor: pointer;
-  font-size: 14px;
+  font-size: 0.875rem;
   padding: 0;
   line-height: 1;
   margin-left: auto;
@@ -2172,15 +2172,15 @@
 .createProjectFields {
   display: flex;
   flex-direction: column;
-  gap: 6px;
+  gap: 0.375rem;
 }
 
 .createProjectInput {
   width: 100%;
-  border: 1px solid #bae6fd;
-  border-radius: 6px;
-  padding: 6px 10px;
-  font-size: 12.5px;
+  border: 0.062rem solid #bae6fd;
+  border-radius: 0.375rem;
+  padding: 0.375rem 0.625rem;
+  font-size: 0.781rem;
   color: #0c4a6e;
   background: #fff;
   font-family: inherit;
@@ -2189,16 +2189,16 @@
 }
 .createProjectInput:focus {
   border-color: #0ea5e9;
-  box-shadow: 0 0 0 2px rgba(14, 165, 233, 0.15);
+  box-shadow: 0 0 0 0.125rem rgba(14, 165, 233, 0.15);
 }
 .createProjectInput::placeholder { color: #94a3b8; }
 
 .createProjectSelect {
   width: 100%;
-  border: 1px solid #bae6fd;
-  border-radius: 6px;
-  padding: 6px 10px;
-  font-size: 12.5px;
+  border: 0.062rem solid #bae6fd;
+  border-radius: 0.375rem;
+  padding: 0.375rem 0.625rem;
+  font-size: 0.781rem;
   color: #0c4a6e;
   background: #fff;
   font-family: inherit;
@@ -2215,9 +2215,9 @@
   background: #0ea5e9;
   color: #fff;
   border: none;
-  border-radius: 7px;
-  padding: 7px 14px;
-  font-size: 12.5px;
+  border-radius: 0.438rem;
+  padding: 0.438rem 0.875rem;
+  font-size: 0.781rem;
   font-weight: 600;
   cursor: pointer;
   font-family: inherit;
@@ -2229,38 +2229,38 @@
 
 /* ── Review Item Block (multi-RI layout) ── */
 .riBlock {
-  border: 1px solid #e5e7eb;
-  border-radius: 10px;
+  border: 0.062rem solid #e5e7eb;
+  border-radius: 0.625rem;
   overflow: hidden;
   background: #fff;
 }
 
 .riHeader {
   background: #f8fafc;
-  border-bottom: 1px solid #e5e7eb;
-  padding: 10px 12px 8px;
+  border-bottom: 0.062rem solid #e5e7eb;
+  padding: 0.625rem 0.75rem 0.5rem;
 }
 
 .riHeaderTop {
   display: flex;
   align-items: center;
-  gap: 6px;
-  margin-bottom: 6px;
+  gap: 0.375rem;
+  margin-bottom: 0.375rem;
 }
 
 .riTitle {
-  font-size: 13px;
+  font-size: 0.812rem;
   font-weight: 700;
   color: #111827;
   line-height: 1.35;
-  margin-bottom: 3px;
+  margin-bottom: 0.188rem;
 }
 
 .riDescription {
-  font-size: 11.5px;
+  font-size: 0.719rem;
   color: #6b7280;
   line-height: 1.5;
-  margin-bottom: 5px;
+  margin-bottom: 0.312rem;
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
@@ -2269,15 +2269,15 @@
 .riMeta {
   display: flex;
   align-items: center;
-  gap: 8px;
+  gap: 0.5rem;
   flex-wrap: wrap;
 }
 
 .riPriority {
-  font-size: 10.5px;
+  font-size: 0.656rem;
   font-weight: 600;
-  border-radius: 20px;
-  padding: 2px 7px;
+  border-radius: 1.25rem;
+  padding: 0.125rem 0.438rem;
 }
 .riPriority-high   { color: #dc2626; background: #fee2e2; }
 .riPriority-medium { color: #d97706; background: #fef3c7; }
@@ -2286,33 +2286,33 @@
 .riDueDate {
   display: flex;
   align-items: center;
-  gap: 3px;
-  font-size: 10.5px;
+  gap: 0.188rem;
+  font-size: 0.656rem;
   color: #9ca3af;
 }
 
 .riSavedBadge {
-  font-size: 10px;
+  font-size: 0.625rem;
   font-weight: 600;
   color: #059669;
   background: #d1fae5;
-  border-radius: 20px;
-  padding: 2px 7px;
+  border-radius: 1.25rem;
+  padding: 0.125rem 0.438rem;
 }
 
 .riEditRow {
   display: flex;
   flex-direction: column;
-  gap: 6px;
-  margin-top: 6px;
+  gap: 0.375rem;
+  margin-top: 0.375rem;
 }
 
 .editSelectSm {
   width: 100%;
-  padding: 7px 10px;
-  border: 1px solid #d1d5db;
-  border-radius: 6px;
-  font-size: 12px;
+  padding: 0.438rem 0.625rem;
+  border: 0.062rem solid #d1d5db;
+  border-radius: 0.375rem;
+  font-size: 0.75rem;
   font-family: inherit;
   color: #374151;
   background: #fff;
@@ -2323,16 +2323,16 @@
 
 /* ── Task list inside a review item ── */
 .riTaskList {
-  padding: 8px 10px 6px;
+  padding: 0.5rem 0.625rem 0.375rem;
   display: flex;
   flex-direction: column;
-  gap: 6px;
+  gap: 0.375rem;
 }
 
 .taskCard {
-  border: 1px solid #f0f0f0;
-  border-radius: 7px;
-  padding: 8px 10px;
+  border: 0.062rem solid #f0f0f0;
+  border-radius: 0.438rem;
+  padding: 0.5rem 0.625rem;
   background: #fff;
 }
 
@@ -2340,12 +2340,12 @@
   display: flex;
   align-items: flex-start;
   justify-content: space-between;
-  gap: 4px;
-  margin-bottom: 3px;
+  gap: 0.25rem;
+  margin-bottom: 0.188rem;
 }
 
 .taskCardTitle {
-  font-size: 12px;
+  font-size: 0.75rem;
   font-weight: 600;
   color: #111827;
   line-height: 1.35;
@@ -2355,15 +2355,15 @@
 .taskCardActions {
   display: flex;
   align-items: center;
-  gap: 2px;
+  gap: 0.125rem;
   flex-shrink: 0;
 }
 
 .taskDescription {
-  font-size: 11.5px;
+  font-size: 0.719rem;
   color: #6b7280;
   line-height: 1.45;
-  margin-bottom: 5px;
+  margin-bottom: 0.312rem;
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
@@ -2372,20 +2372,20 @@
 .taskMeta {
   display: flex;
   align-items: center;
-  gap: 8px;
+  gap: 0.5rem;
   flex-wrap: wrap;
 }
 
 .taskAssignee {
   display: flex;
   align-items: center;
-  gap: 4px;
-  font-size: 11px;
+  gap: 0.25rem;
+  font-size: 0.688rem;
   color: #374151;
 }
 
 .taskAssigneeNone {
-  font-size: 11px;
+  font-size: 0.688rem;
   color: #d1d5db;
   font-style: italic;
 }
@@ -2393,38 +2393,38 @@
 .taskDue {
   display: flex;
   align-items: center;
-  gap: 3px;
-  font-size: 10.5px;
+  gap: 0.188rem;
+  font-size: 0.656rem;
   color: #9ca3af;
 }
 
 .taskAttachCount {
   display: flex;
   align-items: center;
-  gap: 3px;
-  font-size: 10.5px;
+  gap: 0.188rem;
+  font-size: 0.656rem;
   color: #9ca3af;
 }
 
 .taskEditForm {
   display: flex;
   flex-direction: column;
-  gap: 6px;
+  gap: 0.375rem;
 }
 
 .taskEditMeta {
   display: flex;
   align-items: center;
-  gap: 6px;
+  gap: 0.375rem;
   flex-wrap: wrap;
 }
 
 .editDescTextarea {
   width: 100%;
-  padding: 6px 8px;
-  border: 1px solid #d1d5db;
-  border-radius: 6px;
-  font-size: 12px;
+  padding: 0.375rem 0.5rem;
+  border: 0.062rem solid #d1d5db;
+  border-radius: 0.375rem;
+  font-size: 0.75rem;
   font-family: inherit;
   color: #374151;
   outline: none;
@@ -2436,30 +2436,30 @@
 .addTaskInlineBtn {
   display: flex;
   align-items: center;
-  gap: 4px;
-  font-size: 11.5px;
+  gap: 0.25rem;
+  font-size: 0.719rem;
   color: #6b7280;
   background: none;
   border: none;
   cursor: pointer;
-  padding: 4px 2px;
+  padding: 0.25rem 0.125rem;
   font-family: inherit;
 }
 .addTaskInlineBtn:hover { color: #2563eb; }
 
 /* ── Flat Extract Card ── */
 .extractCard {
-  border: 1px solid #e5e7eb;
-  border-radius: 10px;
-  padding: 12px 14px;
+  border: 0.062rem solid #e5e7eb;
+  border-radius: 0.625rem;
+  padding: 0.75rem 0.875rem;
   background: #fff;
 }
 
 .extractCardHead {
   display: flex;
   align-items: flex-start;
-  gap: 6px;
-  margin-bottom: 8px;
+  gap: 0.375rem;
+  margin-bottom: 0.5rem;
 }
 
 .extractCardTitleBlock {
@@ -2468,19 +2468,19 @@
 }
 
 .extractCardTitle {
-  font-size: 13px;
+  font-size: 0.812rem;
   font-weight: 700;
   color: #111827;
   line-height: 1.35;
-  margin-bottom: 3px;
+  margin-bottom: 0.188rem;
   display: flex;
   align-items: center;
   flex-wrap: wrap;
-  gap: 4px;
+  gap: 0.25rem;
 }
 
 .extractCardDesc {
-  font-size: 11.5px;
+  font-size: 0.719rem;
   color: #6b7280;
   line-height: 1.45;
   white-space: nowrap;
@@ -2498,11 +2498,11 @@
   border: none;
   color: #9ca3af;
   cursor: pointer;
-  padding: 2px 4px;
-  border-radius: 5px;
+  padding: 0.125rem 0.25rem;
+  border-radius: 0.312rem;
   display: flex;
   align-items: center;
-  font-size: 16px;
+  font-size: 1rem;
 }
 .extractMoreBtn:hover {
   background: #f3f4f6;
@@ -2511,24 +2511,24 @@
 
 .extractMenuDropdown {
   position: absolute;
-  top: 26px;
+  top: 1.625rem;
   right: 0;
   background: #fff;
-  border: 1px solid #e5e7eb;
-  border-radius: 8px;
-  box-shadow: 0 4px 16px rgba(0,0,0,0.1);
+  border: 0.062rem solid #e5e7eb;
+  border-radius: 0.5rem;
+  box-shadow: 0 0.25rem 1rem rgba(0,0,0,0.1);
   z-index: 200;
-  min-width: 120px;
+  min-width: 7.5rem;
   overflow: hidden;
 }
 
 .extractMenuItem {
   display: flex;
   align-items: center;
-  gap: 6px;
+  gap: 0.375rem;
   width: 100%;
-  padding: 8px 12px;
-  font-size: 12.5px;
+  padding: 0.5rem 0.75rem;
+  font-size: 0.781rem;
   font-weight: 500;
   color: #374151;
   background: none;
@@ -2547,17 +2547,17 @@
 .extractCardTagRow {
   display: flex;
   align-items: center;
-  gap: 8px;
-  margin-bottom: 10px;
+  gap: 0.5rem;
+  margin-bottom: 0.625rem;
 }
 
 .extractDiscTag {
   display: inline-flex;
   align-items: center;
-  font-size: 11px;
+  font-size: 0.688rem;
   font-weight: 600;
-  border-radius: 20px;
-  padding: 3px 9px;
+  border-radius: 1.25rem;
+  padding: 0.188rem 0.562rem;
   flex-shrink: 0;
 }
 .extractDiscTag-architect  { color: #2563eb; background: #dbeafe; }
@@ -2573,15 +2573,15 @@
   -moz-appearance: none;
   appearance: none;
   border: none;
-  border-radius: 20px;
-  padding: 3px 22px 3px 10px;
-  font-size: 11.5px;
+  border-radius: 1.25rem;
+  padding: 0.188rem 1.375rem 0.188rem 0.625rem;
+  font-size: 0.719rem;
   font-weight: 600;
   cursor: pointer;
   font-family: inherit;
   background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='10' height='6'%3E%3Cpath d='M0 0l5 6 5-6z' fill='%236b7280'/%3E%3C/svg%3E");
   background-repeat: no-repeat;
-  background-position: right 7px center;
+  background-position: right 0.438rem center;
   outline: none;
 }
 
@@ -2592,30 +2592,30 @@
 .extractStatusSel-approved_closed    { color: #059669; background: #d1fae5; }
 
 .extractCardDivider {
-  height: 1px;
+  height: 0.062rem;
   background: #f3f4f6;
-  margin: 0 -14px 10px;
+  margin: 0 -0.875rem 0.625rem;
 }
 
 .extractMetaRow {
   display: flex;
   align-items: center;
-  gap: 8px;
-  margin-bottom: 6px;
+  gap: 0.5rem;
+  margin-bottom: 0.375rem;
 }
 .extractMetaRow:last-child { margin-bottom: 0; }
 
 .extractMetaLabel {
-  font-size: 11px;
+  font-size: 0.688rem;
   color: #9ca3af;
-  width: 58px;
+  width: 3.625rem;
   flex-shrink: 0;
 }
 
 .extractMetaValue {
   display: flex;
   align-items: center;
-  font-size: 12px;
+  font-size: 0.75rem;
   color: #374151;
   font-weight: 500;
   flex: 1;
@@ -2632,26 +2632,26 @@
 .extractEditForm {
   display: flex;
   flex-direction: column;
-  gap: 8px;
+  gap: 0.5rem;
 }
 
 .editFieldRows {
   display: flex;
   flex-direction: column;
-  gap: 6px;
-  margin-top: 2px;
+  gap: 0.375rem;
+  margin-top: 0.125rem;
 }
 
 .editFieldRow {
   display: flex;
   align-items: center;
-  gap: 10px;
+  gap: 0.625rem;
 }
 
 .editFieldLabel {
-  width: 62px;
+  width: 3.875rem;
   flex-shrink: 0;
-  font-size: 11px;
+  font-size: 0.688rem;
   font-weight: 500;
   color: #9ca3af;
   text-transform: capitalize;
@@ -2660,10 +2660,10 @@
 .editFieldControl {
   flex: 1;
   min-width: 0;
-  border: 1px solid #e5e7eb;
-  border-radius: 6px;
-  padding: 6px 9px;
-  font-size: 12px;
+  border: 0.062rem solid #e5e7eb;
+  border-radius: 0.375rem;
+  padding: 0.375rem 0.562rem;
+  font-size: 0.75rem;
   color: #374151;
   background: #fff;
   font-family: inherit;
@@ -2672,7 +2672,7 @@
 }
 .editFieldControl:focus {
   border-color: #2563eb;
-  box-shadow: 0 0 0 2px rgba(37, 99, 235, 0.08);
+  box-shadow: 0 0 0 0.125rem rgba(37, 99, 235, 0.08);
 }
 
 /* ── Task status select color variants ── */

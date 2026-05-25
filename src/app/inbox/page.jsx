@@ -125,21 +125,21 @@ function formatDate(iso) {
 // Keys must match DB CHECK constraint: architect|engineer|contractor|client|consultant|other
 // "client" is stored in DB for display but excluded from task-assignment options
 const DISCIPLINE_CLASS = {
-  architect:   "reviewTagArch",
-  engineer:    "reviewTagMep",
-  contractor:  "reviewTagCivil",
-  client:      "reviewTagFire",
-  consultant:  "reviewTagArch",
-  other:       "reviewTagMep",
+  architect: "reviewTagArch",
+  engineer: "reviewTagMep",
+  contractor: "reviewTagCivil",
+  client: "reviewTagFire",
+  consultant: "reviewTagArch",
+  other: "reviewTagMep",
 };
 
 const DISCIPLINE_LABEL = {
-  architect:   "Architect",
-  engineer:    "Engineer",
-  contractor:  "Contractor",
-  client:      "Client",
-  consultant:  "Consultant",
-  other:       "Other",
+  architect: "Architect",
+  engineer: "Engineer",
+  contractor: "Contractor",
+  client: "Client",
+  consultant: "Consultant",
+  other: "Other",
 };
 
 // Discipline options available for task assignment (excludes client — tasks are for stakeholders only)
@@ -147,53 +147,53 @@ const STAKEHOLDER_DISCIPLINES = ["architect", "engineer", "contractor", "consult
 
 // Map any AI-returned or free-text string → DB-valid value
 const DISCIPLINE_NORMALIZE = {
-  architect:          "architect",
-  architectural:      "architect",
-  architecture:       "architect",
-  engineer:           "engineer",
-  engineering:        "engineer",
-  structural:         "engineer",
-  mep:                "engineer",
-  civil:              "engineer",
-  electrical:         "engineer",
-  mechanical:         "engineer",
-  plumbing:           "engineer",
+  architect: "architect",
+  architectural: "architect",
+  architecture: "architect",
+  engineer: "engineer",
+  engineering: "engineer",
+  structural: "engineer",
+  mep: "engineer",
+  civil: "engineer",
+  electrical: "engineer",
+  mechanical: "engineer",
+  plumbing: "engineer",
   "fire/life safety": "consultant",
-  fire:               "consultant",
-  contractor:         "contractor",
-  builder:            "contractor",
-  construction:       "contractor",
+  fire: "consultant",
+  contractor: "contractor",
+  builder: "contractor",
+  construction: "contractor",
   // client / owner → "other" so they are never auto-assigned as stakeholders
-  client:             "other",
-  owner:              "other",
-  consultant:         "consultant",
-  other:              "other",
+  client: "other",
+  owner: "other",
+  consultant: "consultant",
+  other: "other",
 };
 const normalizeDiscipline = (d) =>
   d ? (DISCIPLINE_NORMALIZE[d.toLowerCase()] ?? "other") : "other";
 
 const DISC_ICON = {
-  architect:  RiBuildingLine,
-  engineer:   RiFlashlightLine,
+  architect: RiBuildingLine,
+  engineer: RiFlashlightLine,
   contractor: RiHammerLine,
   consultant: RiShieldLine,
-  client:     RiAlertLine,
-  other:      RiAlertLine,
+  client: RiAlertLine,
+  other: RiAlertLine,
 };
 
 const RI_STATUS_LABEL = {
-  new:                 "Open",
-  in_review:           "In Review",
-  needs_decision:      "Needs Decision",
+  new: "Open",
+  in_review: "In Review",
+  needs_decision: "Needs Decision",
   waiting_on_external: "Waiting",
-  approved_closed:     "Approved",
+  approved_closed: "Approved",
 };
 
 const TASK_STATUS_LABEL = {
-  open:        "Open",
+  open: "Open",
   in_progress: "In Progress",
-  blocked:     "Blocked",
-  done:        "Done",
+  blocked: "Blocked",
+  done: "Done",
 };
 
 const STATUS_CLASS = {
@@ -272,34 +272,34 @@ export default function InboxPage() {
   const fileInputRefs = useRef({});
   const replyInputRef = useRef(null);
 
+  const loadEmails = async () => {
+    setFetchingEmails(true);
+    try {
+      const data = await getMailConnections();
+      const connections = data.data || [];
+      const gmailConnected = connections.some(
+        (c) => c.provider === "gmail" && c.is_connected
+      );
+      if (gmailConnected) {
+        try {
+          const res = await getEmails();
+          setEmails(res.data || []);
+        } catch (err) {
+          console.error("getEmails failed", err);
+        }
+      }
+    } catch (err) {
+      console.error("getMailConnections failed", err);
+    } finally {
+      setFetchingEmails(false);
+    }
+  };
+
   // Check mail connections on mount; fetch emails if Gmail is connected
   useEffect(() => {
     if (authLoading) return;        // wait for auth to resolve first
     if (initRan.current) return;
     initRan.current = true;
-
-    const loadEmails = async () => {
-      try {
-        const data = await getMailConnections();
-        const connections = data.data || [];
-        const gmailConnected = connections.some(
-          (c) => c.provider === "gmail" && c.is_connected
-        );
-        if (gmailConnected) {
-          try {
-            await new Promise((r) => setTimeout(r, 2000));
-            const res = await getEmails();
-            setEmails(res.data || []);
-          } catch (err) {
-            console.error("getEmails failed", err);
-          }
-        }
-      } catch (err) {
-        console.error("getMailConnections failed", err);
-      } finally {
-        setFetchingEmails(false);
-      }
-    };
 
     const init = async () => {
       if (searchParams.get("connected") === "error") {
@@ -341,8 +341,8 @@ export default function InboxPage() {
   // ── Load projects & stakeholders ──
   useEffect(() => {
     if (authLoading || !user) return;
-    listProjects().then((res) => setProjects(res.data || [])).catch(() => {});
-    getStakeholders().then((res) => setStakeholders(res.data || [])).catch(() => {});
+    listProjects().then((res) => setProjects(res.data || [])).catch(() => { });
+    getStakeholders().then((res) => setStakeholders(res.data || [])).catch(() => { });
   }, [user, authLoading]);
 
   const handleRefreshProjects = async () => {
@@ -359,6 +359,7 @@ export default function InboxPage() {
     setRefreshingStakeholders(true);
     try {
       const res = await getStakeholders();
+      console.log("getStakeholders", res.data)
       setStakeholders(res.data || []);
     } catch { /* ignore */ } finally {
       setRefreshingStakeholders(false);
@@ -468,7 +469,7 @@ export default function InboxPage() {
           id: `${i}-${j}`,
           title: t.title || "",
           description: t.description || "",
-          status: t.status || "open",
+          status: t.status || "new",
           owner_name: t.assignee_name || null,
           assignee_email: t.assignee_email || null,
           stakeholder_id: null,
@@ -608,7 +609,7 @@ export default function InboxPage() {
       id: `${riId}-${Date.now()}`,
       title: "New task",
       description: "",
-      status: "open",
+      status: "new",
       owner_name: null,
       assignee_email: null,
       stakeholder_id: null,
@@ -681,7 +682,7 @@ export default function InboxPage() {
                 assignee_email: stk?.email || task.assignee_email || null,
                 assignee_name: task.owner_name || stk?.name || null,
                 due_date: task.due_date || null,
-                status: task.status || "open",
+                status: task.status || "new",
                 referenced_attachments: task.referenced_attachments || [],
               };
             }),
@@ -734,7 +735,7 @@ export default function InboxPage() {
   const handleSync = async () => {
     setSyncingAccount(true);
     try {
-      await new Promise((r) => setTimeout(r, 1500));
+      await loadEmails();
     } catch {/* ignore */ }
     finally {
       setSyncingAccount(false);
@@ -963,10 +964,10 @@ export default function InboxPage() {
   // Discipline options for task assignment: stakeholder-only disciplines (no client)
   const disciplineOptions = stakeholders.length > 0
     ? [...new Set(
-        stakeholders
-          .map((s) => normalizeDiscipline(s.discipline))
-          .filter((d) => d && d !== "client")
-      )]
+      stakeholders
+        .map((s) => normalizeDiscipline(s.discipline))
+        .filter((d) => d && d !== "client")
+    )]
     : STAKEHOLDER_DISCIPLINES;
 
   return (
@@ -1106,9 +1107,12 @@ export default function InboxPage() {
 
         {/* Pagination */}
         <div className="emailPagination">
-          <span>
-            {displayedThreads.length} of {total}
-          </span>
+          {(() => {
+            const count = emails.length > 0 ? emails.length : displayedThreads.length;
+            const totalCount = emails.length > 0 ? emails.length : total;
+            if (count === 0) return `0 of ${totalCount}`;
+            return `1–${count} of ${totalCount}`;
+          })()}
           <button className="refreshBtn" onClick={handleSync} disabled={syncingAccount}>
             <RiRefreshLine className={`iconSize14 ${syncingAccount ? "spinning" : ""}`} />
           </button>
@@ -1790,7 +1794,7 @@ export default function InboxPage() {
                       <div className="extractCardDivider" />
 
                       <div className="extractMetaRow">
-                        <span className="extractMetaLabel">Owner</span>
+                        <span className="extractMetaLabel">Assignee</span>
                         <span className="extractMetaValue">
                           {task.owner_name ? (
                             <>
@@ -1887,7 +1891,6 @@ export default function InboxPage() {
               value={searchQuery}
               onChange={(e) => handleSearch(e.target.value)}
             />
-            <kbd className="searchKbd">⌘K</kbd>
           </div>
         </div>
 

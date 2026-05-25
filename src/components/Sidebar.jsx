@@ -52,7 +52,7 @@ export default function Sidebar({ unreadCount, onSettingsClick }) {
         <SidebarItem
           icon={<RiMapPinLine />}
           label="Sites"
-          active={pathname === "/sites"}
+          active={pathname.startsWith("/sites")}
           onClick={() => router.push("/sites")}
         />
         <SidebarItem icon={<RiBriefcase2Line />} label="My Work" />
