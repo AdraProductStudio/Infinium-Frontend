@@ -285,6 +285,9 @@ export const uploadTaskAttachment = (projectId, taskId, file) => {
 export const getTaskAttachments = (projectId, taskId) =>
   axiosInstance.get(`/projects/${projectId}/tasks/${taskId}/attachments`).then((r) => r.data);
 
+export const getProjectAttachmentVersions = (projectId) =>
+  axiosInstance.get(`/projects/${projectId}/attachments/versions`).then((r) => r.data);
+
 export const uploadAttachmentVersion = (groupId, file, versionNote) => {
   const form = new FormData();
   form.append("file", file);
