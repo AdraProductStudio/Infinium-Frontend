@@ -979,7 +979,7 @@ export default function InboxPage() {
         </div>
       )}
       {/* ── Left Sidebar ── */}
-      <Sidebar unreadCount={unreadCount || undefined} onSettingsClick={handleLogout} />
+      <Sidebar unreadCount={unreadCount || undefined} />
 
       {/* ── Email List Panel ── */}
       <div className="emailPanel">

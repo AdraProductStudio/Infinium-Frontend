@@ -7,6 +7,7 @@ import {
   RiMapPinLine,
   RiBriefcase2Line,
   RiPriceTag3Line,
+  RiTeamLine,
   RiSettingsLine,
 } from "react-icons/ri";
 
@@ -23,7 +24,7 @@ function SidebarItem({ icon, label, active, badge, onClick }) {
   );
 }
 
-export default function Sidebar({ unreadCount, onSettingsClick }) {
+export default function Sidebar({ unreadCount }) {
   const router = useRouter();
   const pathname = usePathname();
 
@@ -57,13 +58,20 @@ export default function Sidebar({ unreadCount, onSettingsClick }) {
         />
         <SidebarItem icon={<RiBriefcase2Line />} label="My Work" />
         <SidebarItem icon={<RiPriceTag3Line />} label="Decisions" />
+        <SidebarItem
+          icon={<RiTeamLine />}
+          label="Stakeholders"
+          active={pathname === "/stakeholders"}
+          onClick={() => router.push("/stakeholders")}
+        />
       </nav>
 
       <div className="sidebarBottom">
         <SidebarItem
           icon={<RiSettingsLine />}
           label="Settings"
-          onClick={onSettingsClick}
+          active={pathname === "/settings"}
+          onClick={() => router.push("/settings")}
         />
       </div>
     </aside>

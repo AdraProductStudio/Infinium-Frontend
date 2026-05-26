@@ -24,6 +24,8 @@ import {
   getProjectKanban,
   getTaskAttachments,
   getTaskHistory,
+  getTaskComments,
+  addTaskComment,
 } from "../../../../../lib/api";
 import {
   DISC_LABEL,
@@ -171,21 +173,26 @@ export default function TaskDetailPage() {
   const [task,        setTask]        = useState(null);
   const [attachments, setAttachments] = useState([]);
   const [history,     setHistory]     = useState([]);
+  const [comments,    setComments]    = useState([]);
+  const [commentText, setCommentText] = useState("");
+  const [posting,     setPosting]     = useState(false);
 
   useEffect(() => {
     async function load() {
       setLoading(true);
       try {
-        const [projRes, kanbanRes, attRes, histRes] = await Promise.all([
+        const [projRes, kanbanRes, attRes, histRes, commRes] = await Promise.all([
           getProject(projectId),
           getProjectKanban(projectId),
           getTaskAttachments(projectId, taskId).catch(() => ({ data: [] })),
           getTaskHistory(projectId, taskId).catch(() => ({ data: [] })),
+          getTaskComments(projectId, taskId).catch(() => ({ data: [] })),
         ]);
 
         setProject(projRes?.data || null);
         setAttachments(attRes?.data || []);
         setHistory(histRes?.data || []);
+        setComments(commRes?.data || []);
 
         const cols = kanbanRes?.data?.columns || {};
         const allTasks = Object.values(cols).flat();
@@ -232,6 +239,21 @@ export default function TaskDetailPage() {
         <div className="topNav" />
       </div>
     );
+  }
+
+  async function handlePostComment(e) {
+    e.preventDefault();
+    if (!commentText.trim()) return;
+    setPosting(true);
+    try {
+      const res = await addTaskComment(projectId, taskId, commentText.trim());
+      setComments((prev) => [...prev, res?.data || res]);
+      setCommentText("");
+    } catch (err) {
+      toast.error(err.message || "Failed to post comment");
+    } finally {
+      setPosting(false);
+    }
   }
 
   const isOverdue     = task.is_overdue;
@@ -356,6 +378,60 @@ export default function TaskDetailPage() {
                 })}
               </div>
             )}
+          </div>
+
+          {/* ── Discussion card ── */}
+          <div className="tdCard">
+            <div className="tdCardTitle">
+              Discussion
+              {comments.length > 0 && <span className="tdCardCount">{comments.length}</span>}
+            </div>
+
+            {comments.length === 0 ? (
+              <div className="tdEmpty">No comments yet — start the discussion</div>
+            ) : (
+              <div className="tdCommentList">
+                {comments.map((c, i) => {
+                  const initials = getInitials(c.author_name || "?");
+                  const color    = avatarColor(c.author_id || 0);
+                  return (
+                    <div key={c.id || i} className="tdComment">
+                      <div className="tdCommentAvatar" style={{ background: color }}>{initials}</div>
+                      <div className="tdCommentBody">
+                        <div className="tdCommentHeader">
+                          <span className="tdCommentAuthor">{c.author_name || "Someone"}</span>
+                          <span className="tdCommentTime">{fullTime(c.created_at)}</span>
+                        </div>
+                        <div className="tdCommentText">{c.content}</div>
+                      </div>
+                    </div>
+                  );
+                })}
+              </div>
+            )}
+
+            <form className="tdCommentForm" onSubmit={handlePostComment}>
+              <textarea
+                className="tdCommentInput"
+                placeholder="Write a comment…"
+                value={commentText}
+                onChange={(e) => setCommentText(e.target.value)}
+                onKeyDown={(e) => {
+                  if (e.key === "Enter" && (e.ctrlKey || e.metaKey)) handlePostComment(e);
+                }}
+                rows={3}
+              />
+              <div className="tdCommentFormFooter">
+                <span className="tdCommentHint">Ctrl+Enter to send</span>
+                <button
+                  type="submit"
+                  className="tdCommentBtn"
+                  disabled={posting || !commentText.trim()}
+                >
+                  {posting ? "Posting…" : "Post comment"}
+                </button>
+              </div>
+            </form>
           </div>
 
           {/* ── Counts footer ── */}

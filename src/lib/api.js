@@ -349,10 +349,75 @@ export const updateProjectTaskStatus = (projectId, taskId, status) =>
 export const getTaskHistory = (projectId, taskId) =>
   axiosInstance.get(`/projects/${projectId}/tasks/${taskId}/history`).then((r) => r.data);
 
+export const getTaskComments = (projectId, taskId) =>
+  axiosInstance.get(`/projects/${projectId}/tasks/${taskId}/comments`).then((r) => r.data);
+
+export const addTaskComment = (projectId, taskId, content) =>
+  axiosInstance.post(`/projects/${projectId}/tasks/${taskId}/comments`, { content }).then((r) => r.data);
+
 export const updateProjectReviewItemStatus = (projectId, itemId, status) =>
   axiosInstance
     .put(`/projects/${projectId}/review-items/${itemId}`, { status })
     .then((r) => r.data);
+
+export const listStakeholders = (discipline = null) =>
+  axiosInstance
+    .get(`/stakeholders${discipline ? `?discipline=${encodeURIComponent(discipline)}` : ""}`)
+    .then((r) => r.data);
+
+export const createStakeholder = (body) =>
+  axiosInstance.post("/stakeholders", body).then((r) => r.data);
+
+export const removeStakeholder = (stakeholderId) =>
+  axiosInstance.delete(`/stakeholders/${stakeholderId}`).then((r) => r.data);
+
+export const sendStakeholderInvite = (stakeholderId) =>
+  axiosInstance.post(`/stakeholders/${stakeholderId}/invite`).then((r) => r.data);
+
+export const validateInviteToken = (token) =>
+  axios.get(`${BASE_URL}/auth/invite/${token}`, {
+    headers: { "ngrok-skip-browser-warning": "true" },
+  }).then((r) => r.data);
+
+export const acceptInvite = (token, password) =>
+  axios.post(`${BASE_URL}/auth/accept-invite`, { token, password }, {
+    headers: { "ngrok-skip-browser-warning": "true", "Content-Type": "application/json" },
+  }).then((r) => r.data);
+
+// ── Stakeholder Portal ────────────────────────────────────────────────────────
+
+export const getStakeholderTasks = () =>
+  axiosInstance.get("/stakeholder/tasks").then((r) => r.data);
+
+export const getStakeholderKanban = () =>
+  axiosInstance.get("/stakeholder/kanban").then((r) => r.data);
+
+export const getNotifications = () =>
+  axiosInstance.get("/notifications").then((r) => r.data);
+
+export const markNotificationRead = (id) =>
+  axiosInstance.put(`/notifications/${id}/read`).then((r) => r.data);
+
+export const markAllNotificationsRead = () =>
+  axiosInstance.put("/notifications/read-all").then((r) => r.data);
+
+export const getSseUrl = () => {
+  const token = getToken();
+  return `${BASE_URL}/notifications/stream?token=${token}`;
+};
+
+// ── Mail Connection Settings ──────────────────────────────────────────────────
+
+export const getMailConnectionStatus = () =>
+  axiosInstance.get("/mail-connections/status").then((r) => r.data);
+
+export const disconnectMailConnection = (connectionId) =>
+  axiosInstance.delete(`/mail-connections/${connectionId}`).then((r) => r.data);
+
+export const getGmailConnectUrl = (redirectTo = "/stakeholders") => {
+  const token = getToken();
+  return `${BASE_URL}/mail-connections/connect/gmail?token=${token}&redirect_to=${encodeURIComponent(redirectTo)}`;
+};
 
 export const getKanbanColumns = (entityType) =>
   axiosInstance.get(`/kanban-columns?entity_type=${entityType}`).then((r) => r.data);

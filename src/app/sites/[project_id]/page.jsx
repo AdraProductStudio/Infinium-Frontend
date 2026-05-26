@@ -170,11 +170,6 @@ function KanbanColumn({ col, onCardClick, onRename, onDelete }) {
               </span>
             )}
             <span className="kanbanColCount">{col.cards.length}</span>
-            {col.dbId && (
-              <button className="kanbanColDeleteBtn" onClick={() => onDelete(col.id, col.dbId)} title="Delete column">
-                <RiCloseLine style={{ fontSize: 13 }} />
-              </button>
-            )}
           </div>
           <div className="kanbanCards">
             {col.cards.map((card, index) => (
@@ -311,11 +306,6 @@ function RIKanbanColumn({ col, onRename, onDelete }) {
               </span>
             )}
             <span className="kanbanColCount">{col.cards.length}</span>
-            {col.dbId && (
-              <button className="kanbanColDeleteBtn" onClick={() => onDelete(col.id, col.dbId)} title="Delete column">
-                <RiCloseLine style={{ fontSize: 13 }} />
-              </button>
-            )}
           </div>
           <div className="kanbanCards">
             {col.cards.map((ri, index) => (
@@ -671,10 +661,10 @@ export default function ProjectDetailPage() {
                   onDelete={handleDeleteRICol}
                 />
               ))}
-              <button className="kanbanAddColBtn" onClick={handleAddRICol} title="Add column">
+              {/* <button className="kanbanAddColBtn" onClick={handleAddRICol} title="Add column">
                 <RiAddLine style={{ fontSize: 16 }} />
                 Add column
-              </button>
+              </button> */}
             </div>
           </DragDropContext>
         )}
@@ -690,10 +680,10 @@ export default function ProjectDetailPage() {
                   onDelete={handleDeleteRICol}
                 />
               ))}
-              <button className="kanbanAddColBtn" onClick={handleAddRICol} title="Add column">
+              {/* <button className="kanbanAddColBtn" onClick={handleAddRICol} title="Add column">
                 <RiAddLine style={{ fontSize: 16 }} />
                 Add column
-              </button>
+              </button> */}
             </div>
           </DragDropContext>
         )}
@@ -774,8 +764,8 @@ export default function ProjectDetailPage() {
                 <span className="stakeholderCount">{s.open_items || 0}</span>
               </div>
             ))}
-            <div className="inviteRow">
-              <RiUserAddLine className="iconSize14" /> Invite stakeholder
+            <div className="inviteRow" onClick={() => router.push("/stakeholders")}>
+              <RiUserAddLine className="iconSize14" /> Manage stakeholders
             </div>
           </div>
 
