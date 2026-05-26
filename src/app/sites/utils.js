@@ -18,11 +18,11 @@ export const PHASES = [
 ];
 
 export const TASK_KANBAN_COLS = [
-  { id: "new",              title: "New" },
-  { id: "in_review",        title: "In Review" },
-  { id: "pending_approval", title: "Pending Approval" },
-  { id: "needs_decision",   title: "Needs Decision" },
-  { id: "approved_closed",  title: "Closed" },
+  { id: "new",                 title: "New" },
+  { id: "in_review",           title: "In Review" },
+  { id: "waiting_on_external", title: "Waiting on External" },
+  { id: "needs_decision",      title: "Needs Decision" },
+  { id: "approved_closed",     title: "Approved/Closed" },
 ];
 
 export const DISC_LABEL = {
@@ -75,11 +75,11 @@ export const RI_ACCENT_COLORS = [
 ];
 
 export const RI_KANBAN_COLS = [
-  { id: "new",              title: "New" },
-  { id: "in_review",        title: "In Review" },
-  { id: "pending_approval", title: "Pending Approval" },
-  { id: "needs_decision",   title: "Needs Decision" },
-  { id: "approved_closed",  title: "Closed" },
+  { id: "new",                 title: "New" },
+  { id: "in_review",           title: "In Review" },
+  { id: "waiting_on_external", title: "Waiting on External" },
+  { id: "needs_decision",      title: "Needs Decision" },
+  { id: "approved_closed",     title: "Approved/Closed" },
 ];
 
 export const RI_PRIORITY_COLORS = {

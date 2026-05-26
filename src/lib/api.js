@@ -285,6 +285,25 @@ export const uploadTaskAttachment = (projectId, taskId, file) => {
 export const getTaskAttachments = (projectId, taskId) =>
   axiosInstance.get(`/projects/${projectId}/tasks/${taskId}/attachments`).then((r) => r.data);
 
+export const uploadAttachmentVersion = (groupId, file, versionNote) => {
+  const form = new FormData();
+  form.append("file", file);
+  if (versionNote) form.append("version_note", versionNote);
+  return axiosInstance
+    .post(`/attachments/groups/${groupId}/versions`, form, {
+      headers: { "Content-Type": "multipart/form-data" },
+    })
+    .then((r) => r.data);
+};
+
+export const getAttachmentGroupHistory = (groupId) =>
+  axiosInstance.get(`/attachments/groups/${groupId}/history`).then((r) => r.data);
+
+export const reviewAttachment = (attachmentId, status, note) =>
+  axiosInstance
+    .put(`/attachments/${attachmentId}/review`, { status, note })
+    .then((r) => r.data);
+
 // ── Email Actions ─────────────────────────────────────────────────────────────
 
 export const replyToEmail = (emailId, body) =>

@@ -30,11 +30,11 @@ import {
 // ── Constants ─────────────────────────────────────────────────────────────────
 
 const COLS = [
-  { key: "new",              label: "New",              color: "#6b7280" },
-  { key: "in_review",        label: "In Review",        color: "#2563eb" },
-  { key: "pending_approval", label: "Pending Approval", color: "#d97706" },
-  { key: "needs_decision",   label: "Needs Decision",   color: "#dc2626" },
-  { key: "approved_closed",  label: "Closed",           color: "#16a34a" },
+  { key: "new",                 label: "New",                color: "#6b7280" },
+  { key: "in_review",           label: "In Review",          color: "#2563eb" },
+  { key: "waiting_on_external", label: "Waiting on External", color: "#d97706" },
+  { key: "needs_decision",      label: "Needs Decision",     color: "#dc2626" },
+  { key: "approved_closed",     label: "Approved/Closed",    color: "#16a34a" },
 ];
 
 const STATUS_LABEL = Object.fromEntries(COLS.map((c) => [c.key, c.label]));

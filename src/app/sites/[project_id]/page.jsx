@@ -22,6 +22,17 @@ import {
   RiAlertLine,
   RiAddLine,
   RiCloseLine,
+  RiFilePdfLine,
+  RiFileImageLine,
+  RiFileTextLine,
+  RiDownload2Line,
+  RiUpload2Line,
+  RiRefreshLine,
+  RiArrowUpSLine,
+  RiMailLine as RiMailIcon,
+  RiHammerLine,
+  RiGroupLine,
+  RiArrowRightLine,
 } from "react-icons/ri";
 import Sidebar from "../../../components/Sidebar";
 import toast from "react-hot-toast";
@@ -39,6 +50,12 @@ import {
   createKanbanColumn,
   updateKanbanColumn,
   deleteKanbanColumn,
+  getTaskAttachments,
+  uploadTaskAttachment,
+  uploadAttachmentVersion,
+  getAttachmentGroupHistory,
+  reviewAttachment,
+  downloadAttachment,
 } from "../../../lib/api";
 import {
   PHASES,
@@ -59,6 +76,157 @@ import {
   Avatar,
 } from "../utils";
 import "../sites.css";
+
+/* ── Attachment helpers ── */
+const SOURCE_CFG = {
+  email:       { label: "Email",       icon: RiMailIcon,   color: "#6b7280", bg: "#f3f4f6" },
+  builder:     { label: "Builder",     icon: RiHammerLine, color: "#2563eb", bg: "#eff6ff" },
+  stakeholder: { label: "Stakeholder", icon: RiGroupLine,  color: "#7c3aed", bg: "#f5f3ff" },
+};
+const REVIEW_CFG = {
+  pending:            { label: "Pending",          color: "#d97706", bg: "#fffbeb" },
+  approved:           { label: "Approved",         color: "#16a34a", bg: "#f0fdf4" },
+  revision_requested: { label: "Needs Revision",   color: "#dc2626", bg: "#fef2f2" },
+};
+
+function attFileIcon(name = "") {
+  const ext = (name || "").split(".").pop().toLowerCase();
+  if (ext === "pdf") return RiFilePdfLine;
+  if (["png","jpg","jpeg","gif","webp","svg"].includes(ext)) return RiFileImageLine;
+  return RiFileTextLine;
+}
+function fmtBytes(b) {
+  if (!b) return "";
+  if (b < 1024) return `${b} B`;
+  if (b < 1048576) return `${(b/1024).toFixed(1)} KB`;
+  return `${(b/1048576).toFixed(1)} MB`;
+}
+function timeAgoShort(iso) {
+  if (!iso) return "";
+  const d = Math.floor((Date.now() - new Date(iso)) / 1000);
+  if (d < 60) return "just now";
+  if (d < 3600) return `${Math.floor(d/60)}m ago`;
+  if (d < 86400) return `${Math.floor(d/3600)}h ago`;
+  return `${Math.floor(d/86400)}d ago`;
+}
+
+/* ── Attachment Group (kanban panel version) ── */
+function KanbanAttGroup({ group, onUpload, onReview, onDownload }) {
+  const [expanded,     setExpanded]     = useState(false);
+  const [history,      setHistory]      = useState(null);
+  const [loadingHist,  setLoadingHist]  = useState(false);
+  const [reviewing,    setReviewing]    = useState(false);
+  const fileRef = useRef(null);
+
+  const src  = SOURCE_CFG[group.source] || SOURCE_CFG.email;
+  const rv   = REVIEW_CFG[group.review_status] || REVIEW_CFG.pending;
+  const Icon = attFileIcon(group.file_name);
+  const SrcIcon = src.icon;
+
+  async function toggleHistory() {
+    if (expanded) { setExpanded(false); return; }
+    setLoadingHist(true);
+    try {
+      const res = await getAttachmentGroupHistory(group.group_id);
+      setHistory(res?.data || []);
+      setExpanded(true);
+    } catch { toast.error("Failed to load history"); }
+    finally { setLoadingHist(false); }
+  }
+
+  function handleFile(e) {
+    const f = e.target.files?.[0];
+    if (!f) return;
+    onUpload(group.group_id, f);
+    e.target.value = "";
+  }
+
+  async function handleReview(status) {
+    setReviewing(true);
+    try { await onReview(group.attachment_id, group.group_id, status); }
+    finally { setReviewing(false); }
+  }
+
+  return (
+    <div style={{ border: "1px solid #e5e7eb", borderRadius: 6, marginBottom: 8, overflow: "hidden" }}>
+      {/* header */}
+      <div style={{ display: "flex", alignItems: "center", gap: 6, padding: "6px 10px", background: "#fafafa", borderBottom: expanded ? "1px solid #e5e7eb" : "none" }}>
+        <Icon style={{ fontSize: 14, color: "#6b7280", flexShrink: 0 }} />
+        <span style={{ fontSize: "0.75rem", fontWeight: 600, color: "#111827", flex: 1, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
+          {group.name || group.file_name}
+        </span>
+        <span style={{ fontSize: "0.625rem", fontWeight: 500, padding: "1px 5px", borderRadius: 999, background: src.bg, color: src.color, display: "inline-flex", alignItems: "center", gap: 2, flexShrink: 0 }}>
+          <SrcIcon style={{ fontSize: 9 }} />{src.label}
+        </span>
+        <span style={{ fontSize: "0.625rem", fontWeight: 700, padding: "1px 5px", borderRadius: 999, background: "#e0e7ff", color: "#4338ca", flexShrink: 0 }}>
+          v{group.version}
+        </span>
+      </div>
+
+      {/* body */}
+      <div style={{ padding: "6px 10px" }}>
+        <div style={{ display: "flex", alignItems: "center", gap: 6, flexWrap: "wrap" }}>
+          <span style={{ fontSize: "0.688rem", color: "#6b7280", flex: 1, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
+            {group.file_name}
+            {group.file_size ? <span style={{ color: "#9ca3af", marginLeft: 4 }}>({fmtBytes(group.file_size)})</span> : null}
+          </span>
+          <span style={{ fontSize: "0.625rem", fontWeight: 500, padding: "1px 6px", borderRadius: 999, background: rv.bg, color: rv.color, flexShrink: 0 }}>
+            {rv.label}
+          </span>
+          <button onClick={() => onDownload(group.attachment_id)} style={{ background: "none", border: "none", cursor: "pointer", color: "#9ca3af", padding: 0 }}>
+            <RiDownload2Line style={{ fontSize: 13 }} />
+          </button>
+        </div>
+
+        {/* actions */}
+        <div style={{ display: "flex", alignItems: "center", gap: 4, marginTop: 6, flexWrap: "wrap" }}>
+          <input type="file" ref={fileRef} style={{ display: "none" }} onChange={handleFile} />
+          <button onClick={() => fileRef.current?.click()} style={{ display: "inline-flex", alignItems: "center", gap: 3, fontSize: "0.625rem", padding: "2px 7px", borderRadius: 4, border: "1px solid #d1d5db", background: "#fff", color: "#374151", cursor: "pointer" }}>
+            <RiUpload2Line style={{ fontSize: 10 }} /> Upload v{(group.version || 1) + 1}
+          </button>
+
+          {group.review_status === "pending" && (
+            <>
+              <button disabled={reviewing} onClick={() => handleReview("approved")} style={{ display: "inline-flex", alignItems: "center", gap: 3, fontSize: "0.625rem", padding: "2px 7px", borderRadius: 4, border: "1px solid #16a34a", background: "#f0fdf4", color: "#16a34a", cursor: "pointer" }}>
+                <RiCheckLine style={{ fontSize: 10 }} /> Approve
+              </button>
+              <button disabled={reviewing} onClick={() => handleReview("revision_requested")} style={{ display: "inline-flex", alignItems: "center", gap: 3, fontSize: "0.625rem", padding: "2px 7px", borderRadius: 4, border: "1px solid #dc2626", background: "#fef2f2", color: "#dc2626", cursor: "pointer" }}>
+                <RiRefreshLine style={{ fontSize: 10 }} /> Revise
+              </button>
+            </>
+          )}
+
+          {(group.version_count || 1) > 1 && (
+            <button onClick={toggleHistory} disabled={loadingHist} style={{ marginLeft: "auto", display: "inline-flex", alignItems: "center", gap: 3, fontSize: "0.625rem", padding: "2px 7px", borderRadius: 4, border: "1px solid #e5e7eb", background: "#f9fafb", color: "#6b7280", cursor: "pointer" }}>
+              {loadingHist ? "…" : <>{group.version_count} ver {expanded ? <RiArrowUpSLine style={{ fontSize: 11 }} /> : <RiArrowDownSLine style={{ fontSize: 11 }} />}</>}
+            </button>
+          )}
+        </div>
+      </div>
+
+      {/* history */}
+      {expanded && history && (
+        <div style={{ borderTop: "1px solid #f3f4f6", background: "#f9fafb" }}>
+          {history.map((v, i) => {
+            const vRv = REVIEW_CFG[v.review_status] || REVIEW_CFG.pending;
+            const vSrc = SOURCE_CFG[v.source] || SOURCE_CFG.email;
+            return (
+              <div key={v.id} style={{ display: "flex", alignItems: "center", gap: 6, padding: "5px 10px", borderBottom: i < history.length - 1 ? "1px solid #f3f4f6" : "none", opacity: v.is_latest ? 1 : 0.65 }}>
+                <span style={{ fontSize: "0.625rem", fontWeight: 700, padding: "1px 5px", borderRadius: 999, background: v.is_latest ? "#e0e7ff" : "#f3f4f6", color: v.is_latest ? "#4338ca" : "#9ca3af", flexShrink: 0 }}>v{v.version}</span>
+                <span style={{ flex: 1, fontSize: "0.688rem", color: "#374151", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{v.file_name}</span>
+                <span style={{ fontSize: "0.625rem", color: vSrc.color, flexShrink: 0 }}>{vSrc.label}</span>
+                <span style={{ fontSize: "0.625rem", color: vRv.color, flexShrink: 0 }}>{vRv.label}</span>
+                <button onClick={() => onDownload(v.id)} style={{ background: "none", border: "none", cursor: "pointer", color: "#9ca3af", padding: 0, flexShrink: 0 }}>
+                  <RiDownload2Line style={{ fontSize: 12 }} />
+                </button>
+              </div>
+            );
+          })}
+        </div>
+      )}
+    </div>
+  );
+}
 
 /* ── Loading shell ── */
 function LoadingShell() {
@@ -350,6 +518,13 @@ export default function ProjectDetailPage() {
   const [switcherOpen, setSwitcherOpen] = useState(false);
   const switcherRef = useRef(null);
 
+  // ── Asset versioning panel ──
+  const [selectedTask,  setSelectedTask]  = useState(null);
+  const [taskAtts,      setTaskAtts]      = useState([]);
+  const [loadingAtts,   setLoadingAtts]   = useState(false);
+  const [uploadingAtt,  setUploadingAtt]  = useState(false);
+  const attFileRef = useRef(null);
+
   const loadData = useCallback(async () => {
     setLoading(true);
     try {
@@ -501,6 +676,60 @@ export default function ProjectDetailPage() {
       toast.error(err.message || "Failed to add column");
       setRiColDefs((prev) => prev.filter((c) => c.id !== name));
     }
+  }
+
+  // ── Asset versioning handlers ──
+  async function handleTaskCardClick(card) {
+    setSelectedTask(card);
+    setLoadingAtts(true);
+    setTaskAtts([]);
+    try {
+      const res = await getTaskAttachments(projectId, card.id);
+      setTaskAtts(res?.data || []);
+    } catch { setTaskAtts([]); }
+    finally { setLoadingAtts(false); }
+  }
+
+  async function refreshTaskAtts() {
+    if (!selectedTask) return;
+    try {
+      const res = await getTaskAttachments(projectId, selectedTask.id);
+      setTaskAtts(res?.data || []);
+    } catch {}
+  }
+
+  async function handlePanelUploadVersion(groupId, file) {
+    try {
+      await uploadAttachmentVersion(groupId, file, null);
+      toast.success("New version uploaded");
+      await refreshTaskAtts();
+    } catch { toast.error("Failed to upload version"); }
+  }
+
+  async function handlePanelReview(attachmentId, groupId, status) {
+    try {
+      await reviewAttachment(attachmentId, status, null);
+      toast.success(status === "approved" ? "Approved" : "Revision requested");
+      await refreshTaskAtts();
+    } catch { toast.error("Failed to review"); }
+  }
+
+  async function handlePanelDownload(attachmentId) {
+    try { await downloadAttachment(attachmentId); }
+    catch { toast.error("Failed to download"); }
+  }
+
+  async function handlePanelAttachFile(e) {
+    const file = e.target.files?.[0];
+    if (!file || !selectedTask) return;
+    e.target.value = "";
+    setUploadingAtt(true);
+    try {
+      await uploadTaskAttachment(projectId, selectedTask.id, file);
+      toast.success("File attached");
+      await refreshTaskAtts();
+    } catch { toast.error("Failed to attach file"); }
+    finally { setUploadingAtt(false); }
   }
 
   if (loading) return <LoadingShell />;
@@ -656,7 +885,7 @@ export default function ProjectDetailPage() {
                 <KanbanColumn
                   key={col.id}
                   col={col}
-                  onCardClick={(card) => router.push(`/sites/${projectId}/tasks/${card.id}`)}
+                  onCardClick={handleTaskCardClick}
                   onRename={handleRenameRICol}
                   onDelete={handleDeleteRICol}
                 />
@@ -691,85 +920,150 @@ export default function ProjectDetailPage() {
 
       {/* ── Right Panel ── */}
       <div className="rightPanel">
-        <div className="rightPanelHeader">
-          <div className="rightPanelTitle">
-            <RiCalendarLine className="iconSize15" />
-            Site Overview
-          </div>
-        </div>
-        <div className="rightPanelBody">
-
-          <div className="rSection">
-            <div className="rSectionHeader">
-              <span className="rSectionTitle">Upcoming Deadlines</span>
-              <span className="rViewAll">View calendar</span>
-            </div>
-            {deadlines.length === 0 && (
-              <div style={{ fontSize: "0.75rem", color: "#9ca3af", padding: "0.25rem 0" }}>No upcoming deadlines</div>
-            )}
-            {deadlines5.map((d, i) => {
-              const pri = (d.priority || "").toLowerCase();
-              return (
-                <div key={i} className="deadlineItem">
-                  <span className="deadlineDate">{formatDate(d.due_date)}</span>
-                  <span className="deadlineTitle" title={d.title}>{d.title}</span>
-                  <span className={pri === "high" ? "badgeHigh" : "badgeMedium"}>
-                    {pri === "high" ? "High" : "Medium"}
-                  </span>
+        {selectedTask ? (
+          /* ── Task attachment versioning panel ── */
+          <>
+            <div className="rightPanelHeader" style={{ flexDirection: "column", alignItems: "stretch", gap: 0, padding: "10px 14px 8px" }}>
+              <div style={{ display: "flex", alignItems: "center", gap: 6, marginBottom: 4 }}>
+                <button
+                  onClick={() => setSelectedTask(null)}
+                  style={{ background: "none", border: "none", cursor: "pointer", color: "#6b7280", padding: 0, display: "flex", alignItems: "center", gap: 3, fontSize: "0.719rem" }}
+                >
+                  <RiCloseLine style={{ fontSize: 14 }} /> Close
+                </button>
+                <button
+                  onClick={() => router.push(`/sites/${projectId}/tasks/${selectedTask.id}`)}
+                  style={{ marginLeft: "auto", background: "none", border: "none", cursor: "pointer", color: "#2563eb", padding: 0, display: "flex", alignItems: "center", gap: 3, fontSize: "0.719rem" }}
+                >
+                  Open task <RiArrowRightLine style={{ fontSize: 12 }} />
+                </button>
+              </div>
+              <div style={{ fontSize: "0.812rem", fontWeight: 700, color: "#111827", lineHeight: 1.3, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
+                {selectedTask.title}
+              </div>
+              <div style={{ display: "flex", alignItems: "center", gap: 6, marginTop: 6 }}>
+                <div className="rightPanelTitle" style={{ fontSize: "0.75rem" }}>
+                  <RiAttachment2 style={{ fontSize: 13 }} /> Assets
+                  {taskAtts.length > 0 && <span style={{ marginLeft: 4, background: "#e0e7ff", color: "#4338ca", borderRadius: 999, padding: "0 5px", fontSize: "0.625rem", fontWeight: 700 }}>{taskAtts.length}</span>}
                 </div>
-              );
-            })}
-            {deadlines.length > 5 && (
-              <span className="moreLink">+ {deadlines.length - 5} more</span>
-            )}
-          </div>
-
-          <div className="rSection">
-            <div className="rSectionHeader">
-              <span className="rSectionTitle">Latest Decisions</span>
-              <span className="rViewAll">View all</span>
-            </div>
-            {decisions.length === 0 && (
-              <div style={{ fontSize: "0.75rem", color: "#9ca3af", padding: "0.25rem 0" }}>No decisions yet</div>
-            )}
-            {decisions.slice(0, 5).map((d, i) => (
-              <div key={i} className="decisionItem">
-                <div className="decisionCheck">
-                  <RiCheckLine className="iconSize12" />
+                <div style={{ marginLeft: "auto", display: "flex", alignItems: "center", gap: 4 }}>
+                  <input type="file" ref={attFileRef} style={{ display: "none" }} onChange={handlePanelAttachFile} />
+                  <button
+                    onClick={() => attFileRef.current?.click()}
+                    disabled={uploadingAtt}
+                    style={{ display: "inline-flex", alignItems: "center", gap: 3, fontSize: "0.688rem", padding: "3px 8px", borderRadius: 4, border: "1px solid #2563eb", background: "#eff6ff", color: "#2563eb", cursor: "pointer", fontWeight: 500 }}
+                  >
+                    <RiUpload2Line style={{ fontSize: 11 }} />
+                    {uploadingAtt ? "…" : "Attach"}
+                  </button>
                 </div>
-                <div>
-                  <div className="decisionTitle">{d.review_item_title || d.notes || "—"}</div>
-                  <div className="decisionSub">
-                    {d.decided_by_name && <>Approved by {d.decided_by_name}<br /></>}
-                    {d.decided_at ? formatLongDate(d.decided_at) : ""}
+              </div>
+            </div>
+            <div className="rightPanelBody">
+              {loadingAtts ? (
+                <div style={{ fontSize: "0.75rem", color: "#9ca3af", padding: "1rem 0", textAlign: "center" }}>Loading…</div>
+              ) : taskAtts.length === 0 ? (
+                <div style={{ fontSize: "0.75rem", color: "#9ca3af", padding: "1.5rem 0", textAlign: "center" }}>
+                  <RiAttachment2 style={{ fontSize: 22, color: "#d1d5db", display: "block", margin: "0 auto 6px" }} />
+                  No attachments yet
+                </div>
+              ) : (
+                taskAtts.map((group, i) => (
+                  <KanbanAttGroup
+                    key={group.group_id || i}
+                    group={group}
+                    onUpload={handlePanelUploadVersion}
+                    onReview={handlePanelReview}
+                    onDownload={handlePanelDownload}
+                  />
+                ))
+              )}
+            </div>
+          </>
+        ) : (
+          /* ── Site overview (default) ── */
+          <>
+            <div className="rightPanelHeader">
+              <div className="rightPanelTitle">
+                <RiCalendarLine className="iconSize15" />
+                Site Overview
+              </div>
+            </div>
+            <div className="rightPanelBody">
+
+              <div className="rSection">
+                <div className="rSectionHeader">
+                  <span className="rSectionTitle">Upcoming Deadlines</span>
+                  <span className="rViewAll">View calendar</span>
+                </div>
+                {deadlines.length === 0 && (
+                  <div style={{ fontSize: "0.75rem", color: "#9ca3af", padding: "0.25rem 0" }}>No upcoming deadlines</div>
+                )}
+                {deadlines5.map((d, i) => {
+                  const pri = (d.priority || "").toLowerCase();
+                  return (
+                    <div key={i} className="deadlineItem">
+                      <span className="deadlineDate">{formatDate(d.due_date)}</span>
+                      <span className="deadlineTitle" title={d.title}>{d.title}</span>
+                      <span className={pri === "high" ? "badgeHigh" : "badgeMedium"}>
+                        {pri === "high" ? "High" : "Medium"}
+                      </span>
+                    </div>
+                  );
+                })}
+                {deadlines.length > 5 && (
+                  <span className="moreLink">+ {deadlines.length - 5} more</span>
+                )}
+              </div>
+
+              <div className="rSection">
+                <div className="rSectionHeader">
+                  <span className="rSectionTitle">Latest Decisions</span>
+                  <span className="rViewAll">View all</span>
+                </div>
+                {decisions.length === 0 && (
+                  <div style={{ fontSize: "0.75rem", color: "#9ca3af", padding: "0.25rem 0" }}>No decisions yet</div>
+                )}
+                {decisions.slice(0, 5).map((d, i) => (
+                  <div key={i} className="decisionItem">
+                    <div className="decisionCheck">
+                      <RiCheckLine className="iconSize12" />
+                    </div>
+                    <div>
+                      <div className="decisionTitle">{d.review_item_title || d.notes || "—"}</div>
+                      <div className="decisionSub">
+                        {d.decided_by_name && <>Approved by {d.decided_by_name}<br /></>}
+                        {d.decided_at ? formatLongDate(d.decided_at) : ""}
+                      </div>
+                    </div>
                   </div>
+                ))}
+              </div>
+
+              <div className="rSection">
+                <div className="rSectionHeader">
+                  <span className="rSectionTitle">Stakeholders</span>
+                  <span className="rViewAll">View all</span>
+                </div>
+                {stakeholders.length === 0 && (
+                  <div style={{ fontSize: "0.75rem", color: "#9ca3af", padding: "0.25rem 0" }}>No stakeholders yet</div>
+                )}
+                {stakeholders.slice(0, 6).map((s, i) => (
+                  <div key={s.id || i} className="stakeholderItem">
+                    <Avatar initials={getInitials(s.name)} color={avatarColor(s.id)} size="Xs" />
+                    <span className="stakeholderName">{s.name}</span>
+                    <span className="stakeholderRole">{DISC_LABEL[s.discipline] || s.discipline || "—"}</span>
+                    <span className="stakeholderCount">{s.open_items || 0}</span>
+                  </div>
+                ))}
+                <div className="inviteRow" onClick={() => router.push("/stakeholders")}>
+                  <RiUserAddLine className="iconSize14" /> Manage stakeholders
                 </div>
               </div>
-            ))}
-          </div>
 
-          <div className="rSection">
-            <div className="rSectionHeader">
-              <span className="rSectionTitle">Stakeholders</span>
-              <span className="rViewAll">View all</span>
             </div>
-            {stakeholders.length === 0 && (
-              <div style={{ fontSize: "0.75rem", color: "#9ca3af", padding: "0.25rem 0" }}>No stakeholders yet</div>
-            )}
-            {stakeholders.slice(0, 6).map((s, i) => (
-              <div key={s.id || i} className="stakeholderItem">
-                <Avatar initials={getInitials(s.name)} color={avatarColor(s.id)} size="Xs" />
-                <span className="stakeholderName">{s.name}</span>
-                <span className="stakeholderRole">{DISC_LABEL[s.discipline] || s.discipline || "—"}</span>
-                <span className="stakeholderCount">{s.open_items || 0}</span>
-              </div>
-            ))}
-            <div className="inviteRow" onClick={() => router.push("/stakeholders")}>
-              <RiUserAddLine className="iconSize14" /> Manage stakeholders
-            </div>
-          </div>
-
-        </div>
+          </>
+        )}
       </div>
 
       {/* ── Top Nav ── */}
