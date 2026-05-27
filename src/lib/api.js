@@ -432,6 +432,9 @@ export const addStakeholderTaskComment = (projectId, taskId, content) =>
 export const getStakeholderTaskHistory = (projectId, taskId) =>
   axiosInstance.get(`/stakeholder/projects/${projectId}/tasks/${taskId}/history`).then((r) => r.data);
 
+export const getStakeholderSites = () =>
+  axiosInstance.get("/stakeholder/sites").then((r) => r.data);
+
 export const getStakeholderTasks = () =>
   axiosInstance.get("/stakeholder/tasks").then((r) => r.data);
 

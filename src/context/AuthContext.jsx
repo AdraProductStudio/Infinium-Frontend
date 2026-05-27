@@ -15,7 +15,7 @@ export function AuthProvider({ children }) {
       if (token) {
         try {
           const me = await getMe();
-          setUser(me);
+          setUser(me?.data || me);
         } catch {
           clearTokens();
         } finally {
@@ -31,8 +31,9 @@ export function AuthProvider({ children }) {
   const login = async (email, password) => {
     await apiLogin(email, password);
     const me = await getMe();
-    setUser(me);
-    return me;
+    const user = me?.data || me;
+    setUser(user);
+    return user;
   };
 
   const logout = async () => {

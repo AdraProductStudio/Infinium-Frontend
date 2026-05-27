@@ -2,6 +2,7 @@
 
 import { useState, useEffect, useRef } from "react";
 import { useRouter } from "next/navigation";
+import { useAuth } from "../../context/AuthContext";
 import {
   RiBriefcaseLine,
   RiArrowDownSLine,
@@ -247,6 +248,12 @@ function ProjectCard({ project, onClick, onEdit, onDelete }) {
 /* ── Page ── */
 export default function SitesPage() {
   const router = useRouter();
+  const { user: authUser, loading: authLoading } = useAuth();
+
+  useEffect(() => {
+    if (authLoading) return;
+    if (authUser?.role === "user") router.push("/stakeholder");
+  }, [authLoading, authUser, router]);
 
   const [loading,       setLoading]       = useState(true);
   const [projects,      setProjects]      = useState([]);

@@ -30,8 +30,8 @@ export default function LoginPage() {
     setError("");
     setLoading(true);
     try {
-      await login(form.email, form.password);
-      router.push("/inbox");
+      const me = await login(form.email, form.password);
+      router.push(me?.role === "user" ? "/stakeholder" : "/inbox");
     } catch (err) {
       setError(err.message || "Invalid email or password.");
     } finally {

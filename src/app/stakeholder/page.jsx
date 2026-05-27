@@ -2,29 +2,23 @@
 
 import { useState, useEffect, useRef } from "react";
 import { useRouter } from "next/navigation";
+import { useAuth } from "../../context/AuthContext";
 import {
   RiBriefcase2Line,
-  RiLayoutColumnLine,
   RiBellLine,
-  RiCheckLine,
   RiCalendarLine,
   RiLogoutBoxLine,
   RiLoader4Line,
   RiAlertLine,
-  RiArrowUpLine,
   RiTimeLine,
-  RiFileTextLine,
-  RiArrowRightSLine,
   RiMailLine,
-  RiChat3Line,
-  RiAttachment2,
-  RiMapPinLine,
-  RiSendPlaneLine,
-  RiDownloadLine,
+  RiMapPin2Line,
+  RiTaskLine,
+  RiFolder3Line,
 } from "react-icons/ri";
 import toast from "react-hot-toast";
 import {
-  getStakeholderKanban,
+  getStakeholderSites,
   getNotifications,
   markNotificationRead,
   markAllNotificationsRead,
@@ -32,58 +26,48 @@ import {
   getMe,
   clearTokens,
   getMyWork,
-  getStakeholderTaskComments,
-  addStakeholderTaskComment,
-  getStakeholderTaskHistory,
-  getTaskAttachments,
-  downloadAttachment,
 } from "../../lib/api";
+import { STAGE_COLORS } from "../sites/utils";
+import "../sites/sites.css";
 
-// ── Constants ──────────────────────────────────────────────────────────────────
+// ── Helpers ───────────────────────────────────────────────────────────────────
 
-const COLS = [
-  { key: "new",                  label: "New",                 color: "#6b7280" },
-  { key: "in_review",            label: "In Review",           color: "#2563eb" },
-  { key: "waiting_on_external",  label: "Waiting on External", color: "#d97706" },
-  { key: "needs_decision",       label: "Needs Decision",      color: "#dc2626" },
-  { key: "approved_closed",      label: "Approved / Closed",   color: "#16a34a" },
-];
-
-const STATUS_COLOR = Object.fromEntries(COLS.map((c) => [c.key, c.color]));
-const STATUS_LABEL = Object.fromEntries(COLS.map((c) => [c.key, c.label]));
-
-const DISC_COLOR = {
-  architecture:     { color: "#2563eb", bg: "#eff6ff" },
-  mep:              { color: "#7c3aed", bg: "#f5f3ff" },
-  structural:       { color: "#d97706", bg: "#fffbeb" },
-  legal:            { color: "#dc2626", bg: "#fef2f2" },
-  landscape:        { color: "#16a34a", bg: "#f0fdf4" },
-  developer:        { color: "#0891b2", bg: "#ecfeff" },
-  fire_protection:  { color: "#ea580c", bg: "#fff7ed" },
-  sales:            { color: "#db2777", bg: "#fdf2f8" },
+const STATUS_LABEL = {
+  new:                 "New",
+  in_review:           "In Review",
+  waiting_on_external: "Waiting on External",
+  needs_decision:      "Needs Decision",
+  approved_closed:     "Approved / Closed",
+};
+const STATUS_COLOR = {
+  new:                 { bg: "#f3f4f6", text: "#374151", dot: "#9ca3af" },
+  in_review:           { bg: "#f5f3ff", text: "#6d28d9", dot: "#8b5cf6" },
+  waiting_on_external: { bg: "#fffbeb", text: "#d97706", dot: "#f59e0b" },
+  needs_decision:      { bg: "#fff7ed", text: "#c2410c", dot: "#f97316" },
+  approved_closed:     { bg: "#f0fdf4", text: "#15803d", dot: "#22c55e" },
 };
 
-const PRI_COLOR = {
-  critical: { color: "#dc2626", bg: "#fef2f2" },
-  high:     { color: "#ea580c", bg: "#fff7ed" },
-  medium:   { color: "#d97706", bg: "#fffbeb" },
-  low:      { color: "#6b7280", bg: "#f3f4f6" },
+const DISC_TAG_CLASS = {
+  Arch:      "tagArch",
+  Mep:       "tagMep",
+  Legal:     "tagLegal",
+  Sales:     "tagSales",
+  Landscape: "tagLandscape",
+  Dev:       "tagDev",
 };
-
-const ACTION_MAP = {
-  created:             { label: "Task created",        color: "#16a34a" },
-  status_changed:      { label: "Status changed",      color: "#2563eb" },
-  assigned:            { label: "Assignee changed",    color: "#7c3aed" },
-  due_date_changed:    { label: "Due date changed",    color: "#d97706" },
-  title_changed:       { label: "Title updated",       color: "#6b7280" },
-  description_changed: { label: "Description updated", color: "#6b7280" },
+const DISC_KEY = {
+  architect:  "Arch",
+  engineer:   "Mep",
+  contractor: "Dev",
+  consultant: "Legal",
+  other:      "Dev",
 };
 
 function fmtDate(d) {
   if (!d) return null;
   return new Date(d).toLocaleDateString("en-US", { month: "short", day: "numeric" });
 }
-function fmtDateFull(d) {
+function fmtLongDate(d) {
   if (!d) return null;
   return new Date(d).toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" });
 }
@@ -96,338 +80,64 @@ function timeAgo(iso) {
   return `${Math.floor(s / 86400)}d ago`;
 }
 function isOverdue(d) {
-  if (!d) return false;
-  return new Date(d) < new Date();
+  return d ? new Date(d) < new Date() : false;
 }
 function stageLabel(s) {
   if (!s) return "";
   return s.replace(/_/g, " ").replace(/\b\w/g, (c) => c.toUpperCase());
 }
 function getInitials(name = "") {
-  return name.split(" ").map((w) => w[0]).join("").slice(0, 2).toUpperCase();
+  return name.split(" ").map((w) => w[0]).join("").slice(0, 2).toUpperCase() || "?";
 }
-function avatarBg(id) {
+function avatarColor(id) {
   const palette = ["#6366f1","#8b5cf6","#ec4899","#f59e0b","#10b981","#3b82f6","#ef4444","#14b8a6"];
   return palette[(id || 0) % palette.length];
 }
-function fmtSize(bytes) {
-  if (!bytes) return "";
-  if (bytes < 1024) return `${bytes} B`;
-  if (bytes < 1024 * 1024) return `${(bytes / 1024).toFixed(1)} KB`;
-  return `${(bytes / (1024 * 1024)).toFixed(1)} MB`;
-}
 
-// ── Stat Card ──────────────────────────────────────────────────────────────────
-
-function StatCard({ label, value, sub, icon: Icon, trend }) {
-  return (
-    <div style={{
-      background: "#fff", border: "1px solid #e5e7eb", borderRadius: 10,
-      padding: "14px 16px", flex: 1, minWidth: 0,
-    }}>
-      <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 8 }}>
-        <span style={{ fontSize: "0.75rem", color: "#6b7280", fontWeight: 500 }}>{label}</span>
-        {Icon && <Icon style={{ fontSize: 16, color: "#d1d5db" }} />}
-      </div>
-      <div style={{ fontSize: "1.75rem", fontWeight: 700, color: "#111827", lineHeight: 1 }}>{value}</div>
-      {sub && (
-        <div style={{ display: "flex", alignItems: "center", gap: 4, marginTop: 6 }}>
-          {trend && <RiArrowUpLine style={{ fontSize: 11, color: "#16a34a" }} />}
-          <span style={{ fontSize: "0.688rem", color: trend ? "#16a34a" : "#9ca3af" }}>{sub}</span>
-        </div>
-      )}
-    </div>
-  );
-}
-
-// ── Review Item Card ───────────────────────────────────────────────────────────
-
-function ReviewCard({ item, onClick }) {
-  const disc    = (item.discipline || "").toLowerCase().replace(/ /g, "_");
-  const discCfg = DISC_COLOR[disc] || { color: "#6b7280", bg: "#f3f4f6" };
-  const priCfg  = PRI_COLOR[item.priority] || PRI_COLOR.medium;
-  const overdue = isOverdue(item.due_date) && item.status !== "approved_closed";
-  const stageLbl = stageLabel(item.stage);
-
-  return (
-    <div
-      onClick={() => onClick && onClick(item)}
-      style={{
-        background: "#fff", border: "1px solid #e5e7eb", borderRadius: 10,
-        padding: "14px", cursor: "pointer", transition: "box-shadow 0.15s, border-color 0.15s",
-        width: 280, flexShrink: 0,
-      }}
-      onMouseEnter={(e) => { e.currentTarget.style.boxShadow = "0 2px 12px rgba(0,0,0,0.08)"; e.currentTarget.style.borderColor = "#d1d5db"; }}
-      onMouseLeave={(e) => { e.currentTarget.style.boxShadow = "none"; e.currentTarget.style.borderColor = "#e5e7eb"; }}
-    >
-      <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 8 }}>
-        <div style={{ display: "flex", alignItems: "center", gap: 7 }}>
-          <div style={{
-            width: 28, height: 28, borderRadius: 6, flexShrink: 0,
-            background: "#f3f4f6", display: "flex", alignItems: "center", justifyContent: "center",
-          }}>
-            <RiMapPinLine style={{ fontSize: 14, color: "#9ca3af" }} />
-          </div>
-          <div>
-            <div style={{ fontSize: "0.719rem", fontWeight: 600, color: "#374151" }}>{item.project_name}</div>
-            {item.project_location && (
-              <div style={{ fontSize: "0.594rem", color: "#9ca3af" }}>{item.project_location}</div>
-            )}
-          </div>
-        </div>
-        {stageLbl && (
-          <span style={{ fontSize: "0.594rem", fontWeight: 600, padding: "2px 7px", borderRadius: 999,
-            background: "#f0f9ff", color: "#0369a1", border: "1px solid #bae6fd", whiteSpace: "nowrap" }}>
-            {stageLbl}
-          </span>
-        )}
-      </div>
-
-      <div style={{ fontSize: "0.812rem", fontWeight: 600, color: "#111827",
-        lineHeight: 1.4, marginBottom: 8, display: "-webkit-box",
-        WebkitLineClamp: 2, WebkitBoxOrient: "vertical", overflow: "hidden" }}>
-        {item.title}
-      </div>
-
-      <div style={{ display: "flex", gap: 4, marginBottom: 10, flexWrap: "wrap" }}>
-        <span style={{ fontSize: "0.625rem", fontWeight: 600, padding: "2px 7px", borderRadius: 999,
-          background: discCfg.bg, color: discCfg.color }}>
-          {item.discipline || "General"}
-        </span>
-        <span style={{ fontSize: "0.625rem", fontWeight: 600, padding: "2px 7px", borderRadius: 999,
-          background: `${STATUS_COLOR[item.status]}15`, color: STATUS_COLOR[item.status] || "#6b7280" }}>
-          {STATUS_LABEL[item.status] || item.status}
-        </span>
-      </div>
-
-      <div style={{ display: "flex", alignItems: "center", gap: 6 }}>
-        {item.due_date && (
-          <span style={{ display: "inline-flex", alignItems: "center", gap: 3,
-            fontSize: "0.625rem", color: overdue ? "#dc2626" : "#9ca3af", fontWeight: overdue ? 600 : 400 }}>
-            <RiCalendarLine style={{ fontSize: 10 }} />
-            {fmtDate(item.due_date)}{overdue ? " · Overdue" : ""}
-          </span>
-        )}
-        <span style={{ marginLeft: "auto", fontSize: "0.594rem", fontWeight: 700, padding: "2px 7px",
-          borderRadius: 999, background: priCfg.bg, color: priCfg.color }}>
-          {item.priority ? item.priority.charAt(0).toUpperCase() + item.priority.slice(1) : "—"}
-        </span>
-        {item.is_escalated && (
-          <RiAlertLine style={{ fontSize: 12, color: "#ef4444", flexShrink: 0 }} />
-        )}
-      </div>
-    </div>
-  );
-}
-
-// ── Item Group ─────────────────────────────────────────────────────────────────
-
-function ItemGroup({ title, items, icon: Icon, color, onItemClick }) {
-  return (
-    <div style={{ marginBottom: 28 }}>
-      <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 12 }}>
-        {Icon && <Icon style={{ fontSize: 15, color }} />}
-        <span style={{ fontSize: "0.875rem", fontWeight: 700, color: "#111827" }}>{title}</span>
-        <span style={{ fontSize: "0.688rem", fontWeight: 600, padding: "1px 7px", borderRadius: 999,
-          background: color + "18", color }}>{items.length}</span>
-        <span style={{ marginLeft: "auto", fontSize: "0.719rem", color: "#6b7280", cursor: "pointer",
-          display: "flex", alignItems: "center", gap: 2 }}>
-          View all <RiArrowRightSLine style={{ fontSize: 13 }} />
-        </span>
-      </div>
-      {items.length === 0 ? (
-        <div style={{ fontSize: "0.812rem", color: "#9ca3af", padding: "12px 0" }}>Nothing here</div>
-      ) : (
-        <div style={{ display: "flex", gap: 12, overflowX: "auto", paddingBottom: 4 }}>
-          {items.map((item) => (
-            <ReviewCard key={item.id} item={item} onClick={onItemClick} />
-          ))}
-        </div>
-      )}
-    </div>
-  );
-}
-
-// ── Kanban Task Card ───────────────────────────────────────────────────────────
-
-function KanbanCard({ task, onClick }) {
-  const overdue = isOverdue(task.due_date) && task.status !== "approved_closed";
-  return (
-    <div
-      onClick={() => onClick(task)}
-      style={{
-        background: "#fff", border: "1px solid #e5e7eb", borderRadius: 8,
-        padding: "10px 12px", cursor: "pointer", transition: "box-shadow 0.15s",
-        marginBottom: 8,
-      }}
-      onMouseEnter={(e) => e.currentTarget.style.boxShadow = "0 2px 8px rgba(0,0,0,0.08)"}
-      onMouseLeave={(e) => e.currentTarget.style.boxShadow = "none"}
-    >
-      <div style={{ fontSize: "0.8125rem", fontWeight: 600, color: "#111827", lineHeight: 1.4, marginBottom: 6 }}>
-        {task.title}
-      </div>
-      {task.description && (
-        <div style={{ fontSize: "0.688rem", color: "#6b7280", marginBottom: 8, lineHeight: 1.4,
-          display: "-webkit-box", WebkitLineClamp: 2, WebkitBoxOrient: "vertical", overflow: "hidden" }}>
-          {task.description}
-        </div>
-      )}
-      <div style={{ display: "flex", alignItems: "center", gap: 5, flexWrap: "wrap" }}>
-        <span style={{ fontSize: "0.594rem", color: "#6b7280" }}>{task.project_name}</span>
-        {task.due_date && (
-          <span style={{ display: "inline-flex", alignItems: "center", gap: 2,
-            fontSize: "0.594rem", color: overdue ? "#dc2626" : "#9ca3af", marginLeft: "auto",
-            fontWeight: overdue ? 600 : 400 }}>
-            <RiCalendarLine style={{ fontSize: 10 }} />
-            {fmtDate(task.due_date)}
-          </span>
-        )}
-      </div>
-    </div>
-  );
-}
-
-// ── Review Item Detail Drawer (My Work) ────────────────────────────────────────
-
-function DetailDrawer({ item, onClose }) {
-  if (!item) return null;
-  const disc    = (item.discipline || "").toLowerCase().replace(/ /g, "_");
-  const discCfg = DISC_COLOR[disc] || { color: "#6b7280", bg: "#f3f4f6" };
-  const priCfg  = PRI_COLOR[item.priority] || PRI_COLOR.medium;
-  const overdue = isOverdue(item.due_date) && item.status !== "approved_closed";
-
-  return (
-    <div
-      style={{ position: "fixed", inset: 0, background: "rgba(0,0,0,0.3)", zIndex: 200,
-        display: "flex", justifyContent: "flex-end" }}
-      onClick={onClose}
-    >
-      <div
-        style={{
-          width: 400, maxWidth: "90vw", height: "100%", background: "#fff",
-          display: "flex", flexDirection: "column",
-          boxShadow: "-4px 0 24px rgba(0,0,0,0.12)",
-          animation: "shDrawerIn 0.2s ease",
-        }}
-        onClick={(e) => e.stopPropagation()}
-      >
-        <div style={{ padding: "18px 20px 14px", borderBottom: "1px solid #f3f4f6",
-          display: "flex", alignItems: "flex-start", justifyContent: "space-between" }}>
-          <div>
-            <div style={{ fontSize: "0.688rem", fontWeight: 600, color: "#9ca3af",
-              textTransform: "uppercase", letterSpacing: "0.05em", marginBottom: 6 }}>
-              {item.project_name}
-            </div>
-            <div style={{ fontSize: "1rem", fontWeight: 700, color: "#111827", lineHeight: 1.4 }}>
-              {item.title}
-            </div>
-          </div>
-          <button onClick={onClose} style={{ background: "none", border: "none", cursor: "pointer",
-            color: "#9ca3af", fontSize: 18, lineHeight: 1, padding: 4 }}>✕</button>
-        </div>
-        <div style={{ flex: 1, overflowY: "auto", padding: "20px" }}>
-          <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "14px 20px", marginBottom: 20 }}>
-            <DrawerField label="Status">
-              <span style={{ fontSize: "0.75rem", fontWeight: 600, padding: "2px 10px", borderRadius: 999,
-                background: `${STATUS_COLOR[item.status] || "#6b7280"}15`,
-                color: STATUS_COLOR[item.status] || "#6b7280" }}>
-                {STATUS_LABEL[item.status] || item.status}
-              </span>
-            </DrawerField>
-            <DrawerField label="Priority">
-              <span style={{ fontSize: "0.75rem", fontWeight: 600, padding: "2px 10px", borderRadius: 999,
-                background: priCfg.bg, color: priCfg.color }}>
-                {item.priority ? item.priority.charAt(0).toUpperCase() + item.priority.slice(1) : "—"}
-              </span>
-            </DrawerField>
-            <DrawerField label="Discipline">
-              <span style={{ fontSize: "0.75rem", fontWeight: 600, padding: "2px 10px", borderRadius: 999,
-                background: discCfg.bg, color: discCfg.color }}>
-                {item.discipline || "—"}
-              </span>
-            </DrawerField>
-            <DrawerField label="Due Date">
-              <span style={{ fontSize: "0.8125rem", color: overdue ? "#dc2626" : "#374151",
-                fontWeight: overdue ? 600 : 400 }}>
-                {fmtDateFull(item.due_date) || "—"}{overdue ? " · Overdue" : ""}
-              </span>
-            </DrawerField>
-            {item.stage && (
-              <DrawerField label="Phase">
-                <span style={{ fontSize: "0.8125rem", color: "#374151" }}>{stageLabel(item.stage)}</span>
-              </DrawerField>
-            )}
-          </div>
-          {item.description && (
-            <div>
-              <div style={{ fontSize: "0.688rem", fontWeight: 700, color: "#9ca3af",
-                textTransform: "uppercase", letterSpacing: "0.05em", marginBottom: 8 }}>Description</div>
-              <div style={{ fontSize: "0.875rem", color: "#374151", lineHeight: 1.6,
-                whiteSpace: "pre-wrap" }}>{item.description}</div>
-            </div>
-          )}
-        </div>
-      </div>
-      <style>{`@keyframes shDrawerIn { from { transform: translateX(100%); } to { transform: translateX(0); } }`}</style>
-    </div>
-  );
-}
-
-function DrawerField({ label, children }) {
-  return (
-    <div>
-      <div style={{ fontSize: "0.625rem", fontWeight: 700, color: "#9ca3af",
-        textTransform: "uppercase", letterSpacing: "0.05em", marginBottom: 5 }}>{label}</div>
-      {children}
-    </div>
-  );
-}
-
-// ── Notification Panel ─────────────────────────────────────────────────────────
+// ── Notification Panel ────────────────────────────────────────────────────────
 
 function NotifPanel({ notifications, onMarkRead, onMarkAll }) {
   const unread = notifications.filter((n) => !n.is_read);
   return (
     <div style={{
-      position: "absolute", right: 0, top: "calc(100% + 8px)",
-      width: 340, background: "#fff", borderRadius: 12,
+      position: "absolute", right: 0, top: "calc(100% + 6px)",
+      width: 320, background: "#fff", borderRadius: 10,
       border: "1px solid #e5e7eb", boxShadow: "0 8px 24px rgba(0,0,0,0.1)",
-      zIndex: 100, overflow: "hidden",
+      zIndex: 200, overflow: "hidden",
     }}>
       <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between",
-        padding: "12px 16px 10px", borderBottom: "1px solid #f3f4f6" }}>
-        <span style={{ fontSize: "0.875rem", fontWeight: 700, color: "#111827" }}>Notifications</span>
+        padding: "10px 14px 8px", borderBottom: "1px solid #f3f4f6" }}>
+        <span style={{ fontSize: "0.812rem", fontWeight: 700, color: "#111827" }}>Notifications</span>
         {unread.length > 0 && (
           <button onClick={onMarkAll}
-            style={{ fontSize: "0.75rem", color: "#2563eb", background: "none",
+            style={{ fontSize: "0.719rem", color: "#2563eb", background: "none",
               border: "none", cursor: "pointer", padding: 0, fontFamily: "inherit" }}>
             Mark all read
           </button>
         )}
       </div>
-      <div style={{ maxHeight: "22rem", overflowY: "auto" }}>
+      <div style={{ maxHeight: "20rem", overflowY: "auto" }}>
         {notifications.length === 0 ? (
-          <div style={{ padding: "2rem", textAlign: "center", fontSize: "0.8125rem", color: "#9ca3af" }}>
+          <div style={{ padding: "1.5rem", textAlign: "center", fontSize: "0.75rem", color: "#9ca3af" }}>
             No notifications yet
           </div>
         ) : notifications.map((n) => (
           <div key={n.id}
             onClick={() => !n.is_read && onMarkRead(n.id)}
             style={{
-              padding: "10px 16px", borderBottom: "1px solid #f9fafb", cursor: "pointer",
+              padding: "9px 14px", borderBottom: "1px solid #f9fafb", cursor: "pointer",
               background: n.is_read ? "transparent" : "#eff6ff",
-              transition: "background 0.1s",
             }}
-            onMouseEnter={(e) => e.currentTarget.style.background = n.is_read ? "#fafafa" : "#dbeafe"}
+            onMouseEnter={(e) => e.currentTarget.style.background = n.is_read ? "#f9fafb" : "#dbeafe"}
             onMouseLeave={(e) => e.currentTarget.style.background = n.is_read ? "transparent" : "#eff6ff"}
           >
-            <div style={{ fontSize: "0.8125rem", fontWeight: n.is_read ? 400 : 600, color: "#111827", marginBottom: 2 }}>
+            <div style={{ fontSize: "0.781rem", fontWeight: n.is_read ? 400 : 600, color: "#111827", marginBottom: 2 }}>
               {n.title}
             </div>
             {n.body && (
-              <div style={{ fontSize: "0.75rem", color: "#6b7280", lineHeight: 1.4, marginBottom: 3 }}>{n.body}</div>
+              <div style={{ fontSize: "0.719rem", color: "#6b7280", lineHeight: 1.4, marginBottom: 3 }}>{n.body}</div>
             )}
-            <div style={{ fontSize: "0.6875rem", color: "#9ca3af" }}>{timeAgo(n.created_at)}</div>
+            <div style={{ fontSize: "0.656rem", color: "#9ca3af" }}>{timeAgo(n.created_at)}</div>
           </div>
         ))}
       </div>
@@ -435,408 +145,108 @@ function NotifPanel({ notifications, onMarkRead, onMarkAll }) {
   );
 }
 
-// ── Comment Bubble ─────────────────────────────────────────────────────────────
+// ── My Work Item Detail Drawer ─────────────────────────────────────────────────────
 
-function CommentBubble({ comment }) {
-  const isMe = comment.author_type === "stakeholder";
+function MyWorkDetailDrawer({ item, onClose }) {
+  if (!item) return null;
+  const overdue = isOverdue(item.due_date) && item.status !== "approved_closed";
   return (
-    <div style={{ display: "flex", gap: 8, marginBottom: 14,
-      flexDirection: isMe ? "row-reverse" : "row" }}>
-      <div style={{ width: 28, height: 28, borderRadius: "50%", flexShrink: 0,
-        background: avatarBg(comment.author_id), color: "#fff",
-        display: "flex", alignItems: "center", justifyContent: "center",
-        fontSize: "0.625rem", fontWeight: 700, marginTop: 2 }}>
-        {getInitials(comment.author_name || "?")}
-      </div>
-      <div style={{ maxWidth: "75%", minWidth: 0 }}>
-        <div style={{ display: "flex", alignItems: "baseline", gap: 6,
-          flexDirection: isMe ? "row-reverse" : "row", marginBottom: 3 }}>
-          <span style={{ fontSize: "0.719rem", fontWeight: 600, color: "#374151" }}>
-            {comment.author_name || (isMe ? "You" : "Builder")}
-          </span>
-          <span style={{ fontSize: "0.594rem", color: "#9ca3af" }}>{timeAgo(comment.created_at)}</span>
-        </div>
-        <div style={{
-          background: isMe ? "#ede9fe" : "#f9fafb",
-          border: `1px solid ${isMe ? "#ddd6fe" : "#e5e7eb"}`,
-          borderRadius: isMe ? "12px 2px 12px 12px" : "2px 12px 12px 12px",
-          padding: "8px 12px", fontSize: "0.8125rem", color: "#111827",
-          lineHeight: 1.5, whiteSpace: "pre-wrap", wordBreak: "break-word",
-        }}>
-          {comment.content}
-        </div>
-      </div>
-    </div>
-  );
-}
-
-// ── Activity Entry ─────────────────────────────────────────────────────────────
-
-function ActivityEntry({ entry }) {
-  const cfg = ACTION_MAP[entry.action] || { label: entry.action, color: "#9ca3af" };
-  return (
-    <div style={{ display: "flex", gap: 10, padding: "8px 0", borderBottom: "1px solid #f9fafb" }}>
-      <div style={{ width: 24, height: 24, borderRadius: "50%", flexShrink: 0,
-        background: cfg.color + "18", display: "flex", alignItems: "center",
-        justifyContent: "center", marginTop: 2 }}>
-        <RiTimeLine style={{ fontSize: 11, color: cfg.color }} />
-      </div>
-      <div style={{ flex: 1, minWidth: 0 }}>
-        <div style={{ fontSize: "0.8125rem", color: "#111827", lineHeight: 1.4 }}>
-          <span style={{ fontWeight: 500 }}>{cfg.label}</span>
-          {entry.new_value && (
-            <span style={{ color: cfg.color, fontWeight: 600 }}> → {entry.new_value}</span>
-          )}
-        </div>
-        {entry.old_value && entry.new_value && (
-          <div style={{ fontSize: "0.688rem", color: "#9ca3af" }}>
-            from <span style={{ textDecoration: "line-through" }}>{entry.old_value}</span>
-          </div>
-        )}
-        <div style={{ fontSize: "0.625rem", color: "#9ca3af", marginTop: 2 }}>
-          {entry.actor_name} · {timeAgo(entry.created_at)}
-        </div>
-      </div>
-    </div>
-  );
-}
-
-// ── Attachment Row ─────────────────────────────────────────────────────────────
-
-function AttachmentRow({ attachment }) {
-  return (
-    <div style={{ display: "flex", alignItems: "center", gap: 10, padding: "8px 0",
-      borderBottom: "1px solid #f9fafb" }}>
-      <div style={{ width: 32, height: 32, borderRadius: 6, background: "#f3f4f6",
-        display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0 }}>
-        <RiFileTextLine style={{ fontSize: 14, color: "#9ca3af" }} />
-      </div>
-      <div style={{ flex: 1, minWidth: 0 }}>
-        <div style={{ fontSize: "0.8125rem", fontWeight: 500, color: "#111827",
-          overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
-          {attachment.filename || attachment.original_name || "Attachment"}
-        </div>
-        <div style={{ fontSize: "0.625rem", color: "#9ca3af", marginTop: 1 }}>
-          {fmtSize(attachment.file_size)}{attachment.file_size ? " · " : ""}{fmtDate(attachment.created_at)}
-        </div>
-      </div>
-      <button
-        onClick={() => downloadAttachment(attachment.id).catch(() => toast.error("Download failed"))}
-        style={{ background: "none", border: "1px solid #e5e7eb", borderRadius: 6,
-          cursor: "pointer", padding: "4px 10px", fontSize: "0.688rem", color: "#374151",
-          display: "flex", alignItems: "center", gap: 4, fontFamily: "inherit",
-          transition: "border-color 0.1s" }}
-        onMouseEnter={(e) => e.currentTarget.style.borderColor = "#9ca3af"}
-        onMouseLeave={(e) => e.currentTarget.style.borderColor = "#e5e7eb"}
-      >
-        <RiDownloadLine style={{ fontSize: 11 }} />
-        Download
-      </button>
-    </div>
-  );
-}
-
-// ── Task Detail Drawer (Kanban) ────────────────────────────────────────────────
-
-function TaskDetailDrawer({ task, onClose, latestSseNotif }) {
-  const [activeTab,      setActiveTab]      = useState("discussion");
-  const [comments,       setComments]       = useState([]);
-  const [history,        setHistory]        = useState([]);
-  const [attachments,    setAttachments]    = useState([]);
-  const [loadingComments, setLoadingComments] = useState(false);
-  const [loadingHistory,  setLoadingHistory]  = useState(false);
-  const [loadingAssets,   setLoadingAssets]   = useState(false);
-  const [commentText,    setCommentText]    = useState("");
-  const [submitting,     setSubmitting]     = useState(false);
-  const commentsEndRef = useRef(null);
-
-  useEffect(() => {
-    if (!task) return;
-    fetchComments();
-  }, [task?.id]);
-
-  useEffect(() => {
-    if (!task) return;
-    if (activeTab === "activity" && history.length === 0) fetchHistory();
-    if (activeTab === "assets"   && attachments.length === 0) fetchAssets();
-  }, [activeTab]);
-
-  // Auto-refresh discussion when builder posts a comment on this task via SSE
-  useEffect(() => {
-    if (!latestSseNotif || !task) return;
-    if (latestSseNotif.type === "task_comment") {
-      const incomingId = latestSseNotif.data?.task_id ?? latestSseNotif.task_id;
-      if (incomingId === task.id) {
-        fetchComments();
-        if (activeTab !== "discussion") setActiveTab("discussion");
-      }
-    }
-  }, [latestSseNotif]);
-
-  async function fetchComments() {
-    setLoadingComments(true);
-    try {
-      const r = await getStakeholderTaskComments(task.project_id, task.id);
-      setComments(r?.data || r || []);
-    } catch {}
-    finally { setLoadingComments(false); }
-  }
-
-  async function fetchHistory() {
-    setLoadingHistory(true);
-    try {
-      const r = await getStakeholderTaskHistory(task.project_id, task.id);
-      setHistory(r?.data || r || []);
-    } catch {}
-    finally { setLoadingHistory(false); }
-  }
-
-  async function fetchAssets() {
-    setLoadingAssets(true);
-    try {
-      const r = await getTaskAttachments(task.project_id, task.id);
-      setAttachments(r?.data || r || []);
-    } catch {}
-    finally { setLoadingAssets(false); }
-  }
-
-  async function handleSend() {
-    if (!commentText.trim() || submitting) return;
-    setSubmitting(true);
-    try {
-      const r = await addStakeholderTaskComment(task.project_id, task.id, commentText.trim());
-      const newComment = r?.data || r;
-      setComments((prev) => [...prev, newComment]);
-      setCommentText("");
-      setTimeout(() => commentsEndRef.current?.scrollIntoView({ behavior: "smooth" }), 50);
-    } catch (err) {
-      toast.error(err.message || "Failed to send");
-    } finally { setSubmitting(false); }
-  }
-
-  const overdue = isOverdue(task.due_date) && task.status !== "approved_closed";
-
-  const TABS = [
-    { key: "discussion", label: "Discussion", icon: RiChat3Line },
-    { key: "activity",   label: "Activity",   icon: RiTimeLine },
-    { key: "assets",     label: "Assets",     icon: RiAttachment2 },
-  ];
-
-  return (
-    <div
-      style={{ position: "fixed", inset: 0, background: "rgba(0,0,0,0.3)", zIndex: 200,
-        display: "flex", justifyContent: "flex-end" }}
-      onClick={onClose}
-    >
-      <div
-        style={{
-          width: 480, maxWidth: "92vw", height: "100%", background: "#fff",
-          display: "flex", flexDirection: "column",
-          boxShadow: "-4px 0 24px rgba(0,0,0,0.12)",
-          animation: "shDrawerIn 0.2s ease",
-        }}
-        onClick={(e) => e.stopPropagation()}
-      >
-        {/* Header */}
-        <div style={{ padding: "16px 18px 12px", borderBottom: "1px solid #f3f4f6",
-          display: "flex", alignItems: "flex-start", gap: 10 }}>
+    <>
+      <div className="drawerBackdrop" onClick={onClose} />
+      <div className="taskDrawer">
+        <div className="taskDrawerHeader" style={{ borderLeftColor: "#2563eb" }}>
           <div style={{ flex: 1, minWidth: 0 }}>
             <div style={{ fontSize: "0.688rem", fontWeight: 600, color: "#9ca3af",
               textTransform: "uppercase", letterSpacing: "0.05em", marginBottom: 4 }}>
-              {task.project_name}
+              {item.project_name}
             </div>
-            <div style={{ fontSize: "1rem", fontWeight: 700, color: "#111827", lineHeight: 1.4 }}>
-              {task.title}
-            </div>
-            {task.description && (
-              <div style={{ fontSize: "0.75rem", color: "#6b7280", marginTop: 4, lineHeight: 1.4,
-                display: "-webkit-box", WebkitLineClamp: 2, WebkitBoxOrient: "vertical", overflow: "hidden" }}>
-                {task.description}
-              </div>
-            )}
+            <div className="taskDrawerTitle">{item.title}</div>
           </div>
-          <div style={{ display: "flex", alignItems: "center", gap: 8, flexShrink: 0 }}>
-            <span style={{ fontSize: "0.688rem", fontWeight: 600, padding: "3px 8px",
-              borderRadius: 999, background: `${STATUS_COLOR[task.status] || "#6b7280"}18`,
-              color: STATUS_COLOR[task.status] || "#6b7280" }}>
-              {STATUS_LABEL[task.status] || task.status}
-            </span>
-            <button onClick={onClose} style={{ background: "none", border: "none",
-              cursor: "pointer", color: "#9ca3af", fontSize: 18, padding: 4,
-              lineHeight: 1, borderRadius: 4 }}>✕</button>
-          </div>
+          <button onClick={onClose} className="iconBtn" style={{ alignSelf: "flex-start" }}>✕</button>
         </div>
-
-        {/* Meta row */}
-        {(task.due_date || task.review_item_title) && (
-          <div style={{ padding: "7px 18px", borderBottom: "1px solid #f3f4f6",
-            display: "flex", alignItems: "center", gap: 12, flexWrap: "wrap" }}>
-            {task.due_date && (
-              <span style={{ display: "inline-flex", alignItems: "center", gap: 4,
-                fontSize: "0.688rem", color: overdue ? "#dc2626" : "#6b7280",
-                fontWeight: overdue ? 600 : 400 }}>
-                <RiCalendarLine style={{ fontSize: 12 }} />
-                {fmtDateFull(task.due_date)}{overdue ? " · Overdue" : ""}
-              </span>
+        <div className="taskDrawerBody">
+          <div className="taskDrawerGrid">
+            <div className="taskDrawerField">
+              <div className="taskDrawerLabel">Status</div>
+              <div className="taskDrawerValue">
+                <span style={{ display: "inline-flex", alignItems: "center", gap: 5,
+                  fontSize: "0.75rem", fontWeight: 600, padding: "2px 8px",
+                  borderRadius: 999, background: (STATUS_COLOR[item.status] || STATUS_COLOR.new).bg,
+                  color: (STATUS_COLOR[item.status] || STATUS_COLOR.new).text }}>
+                  <span style={{ width: 6, height: 6, borderRadius: "50%",
+                    background: (STATUS_COLOR[item.status] || STATUS_COLOR.new).dot }} />
+                  {STATUS_LABEL[item.status] || item.status}
+                </span>
+              </div>
+            </div>
+            <div className="taskDrawerField">
+              <div className="taskDrawerLabel">Due Date</div>
+              <div className={`taskDrawerValue${overdue ? " taskDrawerOverdue" : ""}`}>
+                <RiCalendarLine style={{ fontSize: 13 }} />
+                {fmtLongDate(item.due_date) || "—"}{overdue ? " · Overdue" : ""}
+              </div>
+            </div>
+            {item.discipline && (
+              <div className="taskDrawerField">
+                <div className="taskDrawerLabel">Discipline</div>
+                <div className="taskDrawerValue">{item.discipline}</div>
+              </div>
             )}
-            {task.review_item_title && (
-              <span style={{ fontSize: "0.688rem", color: "#9ca3af" }}>
-                {task.review_item_title}
-              </span>
+            {item.priority && (
+              <div className="taskDrawerField">
+                <div className="taskDrawerLabel">Priority</div>
+                <div className="taskDrawerValue">{item.priority.charAt(0).toUpperCase() + item.priority.slice(1)}</div>
+              </div>
+            )}
+            {item.stage && (
+              <div className="taskDrawerField" style={{ gridColumn: "1 / -1" }}>
+                <div className="taskDrawerLabel">Phase</div>
+                <div className="taskDrawerValue">{stageLabel(item.stage)}</div>
+              </div>
             )}
           </div>
-        )}
-
-        {/* Tabs */}
-        <div style={{ display: "flex", borderBottom: "1px solid #f3f4f6", padding: "0 18px" }}>
-          {TABS.map(({ key, label, icon: Icon }) => (
-            <button key={key} onClick={() => setActiveTab(key)} style={{
-              display: "flex", alignItems: "center", gap: 5,
-              padding: "10px 14px 8px", border: "none", background: "none", cursor: "pointer",
-              fontSize: "0.8125rem", fontWeight: activeTab === key ? 600 : 400,
-              color: activeTab === key ? "#7c3aed" : "#6b7280",
-              borderBottom: activeTab === key ? "2px solid #7c3aed" : "2px solid transparent",
-              marginBottom: -1, transition: "color 0.1s", fontFamily: "inherit",
-            }}>
-              <Icon style={{ fontSize: 14 }} />
-              {label}
-            </button>
-          ))}
-        </div>
-
-        {/* Tab content */}
-        <div style={{ flex: 1, overflow: "hidden", display: "flex", flexDirection: "column" }}>
-
-          {/* Discussion */}
-          {activeTab === "discussion" && (
-            <>
-              <div style={{ flex: 1, overflowY: "auto", padding: "14px 18px" }}>
-                {loadingComments ? (
-                  <div style={{ textAlign: "center", padding: "2rem", color: "#9ca3af" }}>
-                    <RiLoader4Line style={{ fontSize: 20, animation: "spin 1s linear infinite" }} />
-                  </div>
-                ) : comments.length === 0 ? (
-                  <div style={{ textAlign: "center", padding: "3rem 1rem", color: "#9ca3af",
-                    fontSize: "0.8125rem" }}>
-                    <RiChat3Line style={{ fontSize: 28, marginBottom: 8, display: "block", margin: "0 auto 8px" }} />
-                    No messages yet. Start the conversation.
-                  </div>
-                ) : (
-                  comments.map((c) => <CommentBubble key={c.id} comment={c} />)
-                )}
-                <div ref={commentsEndRef} />
-              </div>
-              <div style={{ padding: "12px 18px 16px", borderTop: "1px solid #f3f4f6" }}>
-                <div style={{ display: "flex", gap: 8, alignItems: "flex-end" }}>
-                  <textarea
-                    value={commentText}
-                    onChange={(e) => setCommentText(e.target.value)}
-                    onKeyDown={(e) => {
-                      if (e.key === "Enter" && !e.shiftKey) { e.preventDefault(); handleSend(); }
-                    }}
-                    placeholder="Write a message… (Enter to send, Shift+Enter for newline)"
-                    rows={2}
-                    style={{
-                      flex: 1, resize: "none", border: "1px solid #e5e7eb", borderRadius: 8,
-                      padding: "8px 12px", fontSize: "0.8125rem", color: "#111827",
-                      fontFamily: "inherit", outline: "none", lineHeight: 1.5,
-                      transition: "border-color 0.1s",
-                    }}
-                    onFocus={(e) => e.target.style.borderColor = "#7c3aed"}
-                    onBlur={(e) => e.target.style.borderColor = "#e5e7eb"}
-                  />
-                  <button
-                    onClick={handleSend}
-                    disabled={!commentText.trim() || submitting}
-                    style={{
-                      width: 36, height: 36, borderRadius: 8, border: "none", cursor: "pointer",
-                      background: commentText.trim() ? "#7c3aed" : "#e5e7eb",
-                      color: commentText.trim() ? "#fff" : "#9ca3af",
-                      display: "flex", alignItems: "center", justifyContent: "center",
-                      fontSize: 15, transition: "background 0.15s", flexShrink: 0,
-                    }}
-                  >
-                    {submitting
-                      ? <RiLoader4Line style={{ animation: "spin 1s linear infinite" }} />
-                      : <RiSendPlaneLine />}
-                  </button>
-                </div>
-              </div>
-            </>
-          )}
-
-          {/* Activity */}
-          {activeTab === "activity" && (
-            <div style={{ flex: 1, overflowY: "auto", padding: "14px 18px" }}>
-              {loadingHistory ? (
-                <div style={{ textAlign: "center", padding: "2rem", color: "#9ca3af" }}>
-                  <RiLoader4Line style={{ fontSize: 20, animation: "spin 1s linear infinite" }} />
-                </div>
-              ) : history.length === 0 ? (
-                <div style={{ textAlign: "center", padding: "3rem 1rem", color: "#9ca3af",
-                  fontSize: "0.8125rem" }}>
-                  <RiTimeLine style={{ fontSize: 28, display: "block", margin: "0 auto 8px" }} />
-                  No activity recorded yet
-                </div>
-              ) : (
-                history.map((entry) => <ActivityEntry key={entry.id} entry={entry} />)
-              )}
-            </div>
-          )}
-
-          {/* Assets */}
-          {activeTab === "assets" && (
-            <div style={{ flex: 1, overflowY: "auto", padding: "14px 18px" }}>
-              {loadingAssets ? (
-                <div style={{ textAlign: "center", padding: "2rem", color: "#9ca3af" }}>
-                  <RiLoader4Line style={{ fontSize: 20, animation: "spin 1s linear infinite" }} />
-                </div>
-              ) : attachments.length === 0 ? (
-                <div style={{ textAlign: "center", padding: "3rem 1rem", color: "#9ca3af",
-                  fontSize: "0.8125rem" }}>
-                  <RiAttachment2 style={{ fontSize: 28, display: "block", margin: "0 auto 8px" }} />
-                  No assets attached to this task
-                </div>
-              ) : (
-                attachments.map((att) => <AttachmentRow key={att.id} attachment={att} />)
-              )}
+          {item.description && (
+            <div className="taskDrawerSection">
+              <div className="taskDrawerLabel">Description</div>
+              <div className="taskDrawerDesc">{item.description}</div>
             </div>
           )}
         </div>
       </div>
-      <style>{`
-        @keyframes shDrawerIn { from { transform: translateX(100%); } to { transform: translateX(0); } }
-        @keyframes spin { to { transform: rotate(360deg); } }
-      `}</style>
-    </div>
+    </>
   );
 }
 
-// ── Main Page ──────────────────────────────────────────────────────────────────
+// ── Main Page ─────────────────────────────────────────────────────────────────
 
 export default function StakeholderPage() {
   const router = useRouter();
-  const [tab,             setTab]            = useState("mywork");
-  const [myWork,          setMyWork]         = useState(null);
-  const [kanban,          setKanban]         = useState(null);
-  const [loading,         setLoading]        = useState(true);
-  const [me,              setMe]             = useState(null);
-  const [notifications,   setNotifications]  = useState([]);
-  const [showNotif,       setShowNotif]      = useState(false);
-  const [selectedItem,    setSelectedItem]   = useState(null);  // My Work review items
-  const [selectedTask,    setSelectedTask]   = useState(null);  // Kanban tasks
-  const [latestSseNotif,  setLatestSseNotif] = useState(null);
+  const { user, loading: authLoading } = useAuth();
+
+  const [tab,           setTab]          = useState("mywork");
+  const [myWork,        setMyWork]       = useState(null);
+  const [sites,         setSites]        = useState(null);
+  const [loading,       setLoading]      = useState(true);
+  const [me,            setMe]           = useState(null);
+  const [notifications, setNotifications] = useState([]);
+  const [showNotif,     setShowNotif]    = useState(false);
+  const [selectedItem,  setSelectedItem] = useState(null);
   const notifRef = useRef(null);
-  const sseRef   = useRef(null);
+
+  useEffect(() => {
+    if (authLoading) return;
+    if (!user) { router.push("/login"); return; }
+    if (user.role !== "user") router.push("/inbox");
+  }, [authLoading, user, router]);
 
   const unreadCount = notifications.filter((n) => !n.is_read).length;
 
   useEffect(() => {
     Promise.all([
-      getMyWork().then((r)            => setMyWork(r?.data || r)),
-      getStakeholderKanban().then((r) => setKanban(r?.data || r)),
-      getNotifications().then((r)     => setNotifications((r?.data || []).slice().reverse())),
-      getMe().then((r)                => setMe(r?.data || r)),
+      getMyWork().then((r)           => setMyWork(r?.data || r)),
+      getStakeholderSites().then((r) => setSites(r?.data || r)),
+      getNotifications().then((r)    => setNotifications((r?.data || []).slice().reverse())),
+      getMe().then((r)               => setMe(r?.data || r)),
     ])
       .catch(() => {})
       .finally(() => setLoading(false));
@@ -851,11 +261,9 @@ export default function StakeholderPage() {
           const notif = JSON.parse(e.data);
           if (notif.type === "connected") return;
           setNotifications((prev) => [notif, ...prev]);
-          setLatestSseNotif(notif);
           toast(notif.title, { icon: "🔔" });
         } catch {}
       };
-      sseRef.current = es;
     } catch {}
     return () => { es?.close(); };
   }, []);
@@ -877,358 +285,557 @@ export default function StakeholderPage() {
     setNotifications((prev) => prev.map((n) => ({ ...n, is_read: true })));
   }
 
-  const dueItems      = myWork?.due_this_week      || [];
-  const waitingItems  = myWork?.waiting_on_external || [];
-  const escalations   = myWork?.escalations         || [];
-  const openCount     = dueItems.length + waitingItems.length + escalations.length;
-  const blockers      = escalations.filter((e) => e.priority === "critical" || e.priority === "high");
-  const recentNotifs  = notifications.slice(0, 6);
+  const dueItems     = myWork?.due_this_week      || [];
+  const waitingItems = myWork?.waiting_on_external || [];
+  const escalations  = myWork?.escalations         || [];
+  const totalOpen    = dueItems.length + waitingItems.length + escalations.length;
+  const blockers     = escalations.filter((e) => e.priority === "critical" || e.priority === "high");
 
   return (
-    <div style={{ display: "flex", minHeight: "100vh", background: "#f9fafb",
-      fontFamily: "var(--font-inter), Inter, sans-serif" }}>
+    <div className="sitesShell">
 
-      {/* ── Left Sidebar ── */}
-      <aside style={{
-        width: 200, background: "#fff", borderRight: "1px solid #e5e7eb",
-        display: "flex", flexDirection: "column", flexShrink: 0,
-        position: "sticky", top: 0, height: "100vh",
-      }}>
-        <div style={{ padding: "18px 16px 14px", display: "flex", alignItems: "center", gap: 8,
-          borderBottom: "1px solid #f3f4f6" }}>
-          <div style={{ width: 24, height: 24, background: "#111827", borderRadius: 6, flexShrink: 0,
-            position: "relative" }}>
-            <div style={{ position: "absolute", inset: 6, background: "#fff", borderRadius: 2 }} />
-          </div>
-          <span style={{ fontSize: "0.875rem", fontWeight: 700, color: "#111827" }}>Infinium</span>
-          <span style={{ fontSize: "0.563rem", fontWeight: 600, color: "#6b7280", background: "#f3f4f6",
-            border: "1px solid #e5e7eb", borderRadius: 99, padding: "1px 6px",
-            textTransform: "uppercase", letterSpacing: "0.04em" }}>Portal</span>
+      {/* ── Sidebar ── */}
+      <aside className="sidebar">
+        <div className="sidebarLogo">
+          <div className="logoIcon"><span className="logoSquare" /></div>
+          <span className="logoText">Infinium</span>
+          <span style={{
+            fontSize: "0.563rem", fontWeight: 600, color: "#6b7280",
+            background: "#f3f4f6", border: "1px solid #e5e7eb",
+            borderRadius: 99, padding: "1px 6px",
+            textTransform: "uppercase", letterSpacing: "0.04em",
+          }}>Portal</span>
         </div>
-
-        <nav style={{ padding: "10px 8px", flex: 1 }}>
-          {[
-            { key: "mywork",  label: "My Work",  icon: RiBriefcase2Line },
-            { key: "kanban",  label: "Kanban",   icon: RiLayoutColumnLine },
-          ].map(({ key, label, icon: Icon }) => (
-            <button key={key} onClick={() => setTab(key)} style={{
-              width: "100%", display: "flex", alignItems: "center", gap: 9,
-              padding: "8px 10px", borderRadius: 7, border: "none", cursor: "pointer",
-              background: tab === key ? "#f5f3ff" : "transparent",
-              color: tab === key ? "#7c3aed" : "#6b7280",
-              fontWeight: tab === key ? 600 : 400, fontSize: "0.8125rem",
-              fontFamily: "inherit", marginBottom: 2, transition: "all 0.1s",
-            }}>
-              <Icon style={{ fontSize: 16, flexShrink: 0 }} />
-              {label}
-              {key === "mywork" && unreadCount > 0 && (
-                <span style={{ marginLeft: "auto", background: "#ef4444", color: "#fff",
-                  fontSize: "0.563rem", fontWeight: 700, borderRadius: 99,
-                  padding: "1px 5px", minWidth: 16, textAlign: "center" }}>
-                  {unreadCount}
-                </span>
-              )}
-            </button>
-          ))}
+        <nav className="sidebarNav">
+          <div
+            className={`sidebarItem${tab === "mywork" ? " sidebarItemActive" : ""}`}
+            onClick={() => setTab("mywork")}
+          >
+            <span className="sidebarIcon"><RiBriefcase2Line /></span>
+            <span className="sidebarLabel">My Work</span>
+            {totalOpen > 0 && (
+              <span className="sidebarBadge" style={{ background: "#fee2e2", color: "#dc2626" }}>
+                {totalOpen}
+              </span>
+            )}
+          </div>
+          <div
+            className={`sidebarItem${tab === "sites" ? " sidebarItemActive" : ""}`}
+            onClick={() => setTab("sites")}
+          >
+            <span className="sidebarIcon"><RiMapPin2Line /></span>
+            <span className="sidebarLabel">Sites</span>
+            {!loading && sites && (
+              <span className="sidebarBadge">{sites.length}</span>
+            )}
+          </div>
         </nav>
-
         {me && (
-          <div style={{ padding: "12px 12px 16px", borderTop: "1px solid #f3f4f6" }}>
-            <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
-              <div style={{ width: 30, height: 30, borderRadius: "50%", flexShrink: 0,
-                background: avatarBg(me.id), color: "#fff", display: "flex",
-                alignItems: "center", justifyContent: "center",
-                fontSize: "0.75rem", fontWeight: 700 }}>
+          <div className="sidebarBottom">
+            <div className="sidebarItem" style={{ cursor: "default", gap: 7 }}>
+              <div className="avatar avatarSm" style={{ background: avatarColor(me.id) }}>
                 {getInitials(me.name || me.email || "?")}
               </div>
               <div style={{ flex: 1, minWidth: 0 }}>
-                <div style={{ fontSize: "0.75rem", fontWeight: 600, color: "#111827",
-                  overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
+                <div className="userName" style={{ overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
                   {me.name || me.email}
                 </div>
-                {me.role && (
-                  <div style={{ fontSize: "0.594rem", color: "#9ca3af" }}>{me.role}</div>
-                )}
+                {me.role && <div className="userRole">{me.role}</div>}
               </div>
-              <button onClick={() => { clearTokens(); router.push("/login"); }}
+              <button
+                onClick={() => { clearTokens(); router.push("/login"); }}
+                className="iconBtn"
                 title="Sign out"
-                style={{ background: "none", border: "none", cursor: "pointer",
-                  color: "#d1d5db", fontSize: 14, padding: 0 }}
                 onMouseEnter={(e) => e.currentTarget.style.color = "#ef4444"}
-                onMouseLeave={(e) => e.currentTarget.style.color = "#d1d5db"}
+                onMouseLeave={(e) => e.currentTarget.style.color = ""}
               >
-                <RiLogoutBoxLine />
+                <RiLogoutBoxLine style={{ fontSize: 15 }} />
               </button>
             </div>
           </div>
         )}
       </aside>
 
-      {/* ── Center content ── */}
-      <div style={{ flex: 1, display: "flex", flexDirection: "column", minWidth: 0, overflow: "hidden" }}>
-
-        {/* Top bar */}
-        <header style={{
-          height: 52, background: "#fff", borderBottom: "1px solid #e5e7eb",
-          display: "flex", alignItems: "center", justifyContent: "space-between",
-          padding: "0 20px", position: "sticky", top: 0, zIndex: 40, flexShrink: 0,
-        }}>
-          <span style={{ fontSize: "0.8125rem", fontWeight: 600, color: "#374151" }}>
-            {tab === "mywork" ? "My Work" : "Kanban"}
+      {/* ── Top Nav ── */}
+      <div className="topNav">
+        <div className="topNavLeft">
+          <span style={{ fontSize: "0.812rem", fontWeight: 600, color: "#374151" }}>
+            {tab === "mywork" ? "My Work" : "Sites"}
           </span>
-          <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
-            <div style={{ display: "flex", alignItems: "center", gap: 5, fontSize: "0.75rem",
-              color: "#374151", background: "#f0fdf4", padding: "4px 10px",
-              borderRadius: 99, border: "1px solid #bbf7d0" }}>
-              <RiMailLine style={{ fontSize: 12 }} />
-              <span style={{ fontWeight: 500 }}>Gmail Connected</span>
-              <span style={{ width: 6, height: 6, borderRadius: "50%", background: "#22c55e" }} />
-            </div>
-            <div style={{ position: "relative" }} ref={notifRef}>
-              <button onClick={() => setShowNotif((v) => !v)}
-                style={{ position: "relative", background: "none", border: "none",
-                  cursor: "pointer", color: "#374151", fontSize: 18, width: 32, height: 32,
-                  borderRadius: 7, display: "flex", alignItems: "center", justifyContent: "center" }}
-                onMouseEnter={(e) => e.currentTarget.style.background = "#f3f4f6"}
-                onMouseLeave={(e) => e.currentTarget.style.background = "none"}
-              >
-                <RiBellLine />
-                {unreadCount > 0 && (
-                  <span style={{ position: "absolute", top: 0, right: 0,
-                    background: "#ef4444", color: "#fff", fontSize: "0.5625rem",
-                    fontWeight: 700, borderRadius: 99, minWidth: 16, height: 16,
-                    display: "flex", alignItems: "center", justifyContent: "center",
-                    padding: "0 3px", border: "1.5px solid #fff" }}>
-                    {unreadCount > 9 ? "9+" : unreadCount}
-                  </span>
-                )}
-              </button>
-              {showNotif && (
-                <NotifPanel notifications={notifications}
-                  onMarkRead={handleMarkRead} onMarkAll={handleMarkAll} />
-              )}
-            </div>
-            {me && (
-              <div style={{ display: "flex", alignItems: "center", gap: 7 }}>
-                <div style={{ width: 30, height: 30, borderRadius: "50%",
-                  background: avatarBg(me.id), color: "#fff",
+          {!loading && tab === "mywork" && (
+            <span className="sidebarBadge">{totalOpen} open</span>
+          )}
+          {!loading && tab === "sites" && sites && (
+            <span className="sidebarBadge">{sites.length} {sites.length === 1 ? "site" : "sites"}</span>
+          )}
+        </div>
+        <div className="topNavRight">
+          <div className="statusChip">
+            <RiMailLine style={{ fontSize: 12 }} />
+            Gmail Connected
+            <span className="statusDot" />
+          </div>
+          <div style={{ position: "relative" }} ref={notifRef}>
+            <button
+              className="iconBtn"
+              onClick={() => setShowNotif((v) => !v)}
+              style={{ position: "relative" }}
+            >
+              <RiBellLine className="iconSize18" />
+              {unreadCount > 0 && (
+                <span style={{
+                  position: "absolute", top: 0, right: 0,
+                  background: "#ef4444", color: "#fff", fontSize: "0.5rem",
+                  fontWeight: 700, borderRadius: 99, minWidth: 14, height: 14,
                   display: "flex", alignItems: "center", justifyContent: "center",
-                  fontSize: "0.75rem", fontWeight: 700 }}>
-                  {getInitials(me.name || me.email || "?")}
-                </div>
-                <div>
-                  <div style={{ fontSize: "0.75rem", fontWeight: 600, color: "#111827" }}>
-                    {me.name || me.email}
-                  </div>
-                  {me.role && (
-                    <div style={{ fontSize: "0.594rem", color: "#9ca3af" }}>{me.role}</div>
-                  )}
-                </div>
-              </div>
+                  padding: "0 2px", border: "1.5px solid #fff",
+                }}>
+                  {unreadCount > 9 ? "9+" : unreadCount}
+                </span>
+              )}
+            </button>
+            {showNotif && (
+              <NotifPanel notifications={notifications}
+                onMarkRead={handleMarkRead} onMarkAll={handleMarkAll} />
             )}
           </div>
-        </header>
-
-        {/* Main scrollable content */}
-        <main style={{ flex: 1, overflowY: "auto", padding: "24px" }}>
-          {loading ? (
-            <div style={{ display: "flex", flexDirection: "column", alignItems: "center",
-              justifyContent: "center", gap: 12, padding: "4rem", color: "#9ca3af" }}>
-              <RiLoader4Line style={{ fontSize: 28, animation: "spin 1s linear infinite" }} />
-              <span style={{ fontSize: "0.875rem" }}>Loading your workspace…</span>
-              <style>{`@keyframes spin { to { transform: rotate(360deg); } }`}</style>
+          {me && (
+            <div className="avatarChip">
+              <div className="avatar avatarSm" style={{ background: avatarColor(me.id) }}>
+                {getInitials(me.name || me.email || "?")}
+              </div>
+              <div>
+                <div className="userName">{me.name || me.email}</div>
+                {me.role && <div className="userRole">{me.role}</div>}
+              </div>
             </div>
-          ) : tab === "mywork" ? (
-            <MyWorkContent
-              me={me}
-              dueItems={dueItems}
-              waitingItems={waitingItems}
-              escalations={escalations}
-              openCount={openCount}
-              onItemClick={setSelectedItem}
-            />
-          ) : (
-            <KanbanContent kanban={kanban} onTaskClick={setSelectedTask} />
           )}
-        </main>
+        </div>
       </div>
 
-      {/* ── Right Panel (My Work only) ── */}
-      {tab === "mywork" && !loading && (
-        <aside style={{
-          width: 280, background: "#fff", borderLeft: "1px solid #e5e7eb",
-          overflowY: "auto", flexShrink: 0, padding: "20px 0",
-        }}>
-          <div style={{ padding: "0 16px 16px" }}>
-            <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 12 }}>
-              <span style={{ fontSize: "0.75rem", fontWeight: 700, color: "#111827" }}>Recent Thread Updates</span>
-              <span style={{ fontSize: "0.688rem", color: "#6b7280", cursor: "pointer" }}>View all</span>
+      {/* ── Main ── */}
+      <div className="main">
+        {loading ? (
+          <div style={{ display: "flex", flexDirection: "column", alignItems: "center",
+            justifyContent: "center", flex: 1, gap: 10, color: "#9ca3af" }}>
+            <RiLoader4Line style={{ fontSize: 26, animation: "spin 1s linear infinite" }} />
+            <span style={{ fontSize: "0.875rem" }}>Loading your workspace…</span>
+            <style>{`@keyframes spin{to{transform:rotate(360deg)}}`}</style>
+          </div>
+        ) : tab === "mywork" ? (
+          <MyWorkMain
+            me={me}
+            dueItems={dueItems}
+            waitingItems={waitingItems}
+            escalations={escalations}
+            onItemClick={setSelectedItem}
+          />
+        ) : (
+          <SitesMain sites={sites} />
+        )}
+      </div>
+
+      {/* ── Right Panel ── */}
+      <div className="rightPanel">
+        <div className="rightPanelHeader">
+          <div className="rightPanelTitle">
+            <RiBellLine className="iconSize15" />
+            Thread Updates
+            {unreadCount > 0 && (
+              <span className="sidebarBadge" style={{ marginLeft: 2 }}>{unreadCount}</span>
+            )}
+          </div>
+          {unreadCount > 0 && (
+            <button onClick={handleMarkAll}
+              style={{ fontSize: "0.719rem", color: "#2563eb", background: "none",
+                border: "none", cursor: "pointer", padding: 0, fontFamily: "inherit" }}>
+              Mark all read
+            </button>
+          )}
+        </div>
+        <div className="rightPanelBody">
+
+          {/* Recent notifications */}
+          <div className="rSection">
+            <div className="rSectionHeader">
+              <span className="rSectionTitle">Recent Updates</span>
             </div>
-            {recentNotifs.length === 0 ? (
-              <div style={{ fontSize: "0.75rem", color: "#9ca3af", padding: "4px 0" }}>No updates yet</div>
+            {notifications.length === 0 ? (
+              <div style={{ fontSize: "0.75rem", color: "#9ca3af", padding: "8px 0" }}>No updates yet</div>
             ) : (
-              recentNotifs.map((n) => (
-                <div key={n.id} style={{ display: "flex", gap: 8, padding: "6px 0",
-                  borderBottom: "1px solid #f9fafb" }}>
-                  <div style={{ width: 26, height: 26, borderRadius: "50%", flexShrink: 0,
-                    background: avatarBg(n.id), color: "#fff", display: "flex",
-                    alignItems: "center", justifyContent: "center", fontSize: "0.594rem", fontWeight: 700 }}>
+              notifications.slice(0, 8).map((n) => (
+                <div key={n.id}
+                  onClick={() => !n.is_read && handleMarkRead(n.id)}
+                  className="deadlineItem"
+                  style={{ cursor: "pointer", background: n.is_read ? "transparent" : "#f0f9ff",
+                    borderRadius: 6, padding: "6px 8px", marginBottom: 2 }}
+                  onMouseEnter={(e) => e.currentTarget.style.background = "#f9fafb"}
+                  onMouseLeave={(e) => e.currentTarget.style.background = n.is_read ? "transparent" : "#f0f9ff"}
+                >
+                  <div className="avatar avatarXs" style={{ background: avatarColor(n.id), flexShrink: 0 }}>
                     {n.title?.[0]?.toUpperCase() || "?"}
                   </div>
                   <div style={{ flex: 1, minWidth: 0 }}>
                     <div style={{ fontSize: "0.719rem", fontWeight: n.is_read ? 400 : 600,
-                      color: "#111827", overflow: "hidden", textOverflow: "ellipsis",
-                      whiteSpace: "nowrap" }}>{n.title}</div>
+                      color: "#111827", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
+                      {n.title}
+                    </div>
                     {n.body && (
                       <div style={{ fontSize: "0.625rem", color: "#6b7280",
-                        overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{n.body}</div>
+                        overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
+                        {n.body}
+                      </div>
                     )}
+                    <div style={{ fontSize: "0.563rem", color: "#9ca3af", marginTop: 1 }}>
+                      {timeAgo(n.created_at)}
+                    </div>
                   </div>
-                  <span style={{ fontSize: "0.563rem", color: "#9ca3af", flexShrink: 0, marginTop: 2 }}>
-                    {timeAgo(n.created_at)}
-                  </span>
                   {!n.is_read && (
-                    <div style={{ width: 6, height: 6, borderRadius: "50%",
-                      background: "#3b82f6", flexShrink: 0, marginTop: 6 }} />
+                    <span style={{ width: 6, height: 6, borderRadius: "50%", background: "#3b82f6", flexShrink: 0 }} />
                   )}
                 </div>
               ))
             )}
           </div>
 
-          <div style={{ height: 1, background: "#f3f4f6", margin: "4px 0 16px" }} />
-
-          <div style={{ padding: "0 16px" }}>
-            <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 12 }}>
-              <span style={{ fontSize: "0.75rem", fontWeight: 700, color: "#111827" }}>Active Blockers</span>
+          {/* Active Blockers */}
+          {blockers.length > 0 && (
+            <div className="rSection">
+              <div className="rSectionHeader">
+                <span className="rSectionTitle">
+                  <RiAlertLine style={{ fontSize: 13, color: "#ef4444", marginRight: 4, verticalAlign: "middle" }} />
+                  Active Blockers
+                </span>
+              </div>
+              {blockers.map((item) => (
+                <div key={item.id}
+                  onClick={() => setSelectedItem(item)}
+                  className="deadlineItem" style={{ cursor: "pointer" }}>
+                  <RiAlertLine style={{ fontSize: 13, color: item.priority === "critical" ? "#dc2626" : "#f97316", flexShrink: 0 }} />
+                  <div style={{ flex: 1, minWidth: 0 }}>
+                    <div className="deadlineTitle">{item.title}</div>
+                    <div style={{ fontSize: "0.625rem", color: "#9ca3af" }}>{item.project_name}</div>
+                  </div>
+                  <span style={{
+                    fontSize: "0.594rem", fontWeight: 700, padding: "1px 6px",
+                    borderRadius: 999, flexShrink: 0,
+                    background: item.priority === "critical" ? "#fef2f2" : "#fff7ed",
+                    color: item.priority === "critical" ? "#dc2626" : "#ea580c",
+                  }}>
+                    {item.priority.charAt(0).toUpperCase() + item.priority.slice(1)}
+                  </span>
+                </div>
+              ))}
             </div>
-            {blockers.length === 0 ? (
-              <div style={{ fontSize: "0.75rem", color: "#9ca3af", padding: "4px 0" }}>No active blockers</div>
-            ) : (
-              blockers.map((item) => {
-                const priCfg = PRI_COLOR[item.priority] || PRI_COLOR.high;
+          )}
+
+          {/* Site summary */}
+          {sites && sites.length > 0 && (
+            <div className="rSection">
+              <div className="rSectionHeader">
+                <span className="rSectionTitle"><RiFolder3Line style={{ fontSize: 12, marginRight: 4, verticalAlign: "middle" }} />My Sites</span>
+              </div>
+              {sites.slice(0, 4).map((site) => {
+                const sc = STAGE_COLORS[site.status] || { dot: "#9ca3af", bg: "#f3f4f6", text: "#6b7280" };
                 return (
-                  <div key={item.id}
-                    onClick={() => setSelectedItem(item)}
-                    style={{ display: "flex", gap: 8, padding: "7px 0",
-                      borderBottom: "1px solid #f9fafb", cursor: "pointer" }}>
-                    <RiAlertLine style={{ fontSize: 14, color: priCfg.color, flexShrink: 0, marginTop: 1 }} />
+                  <div key={site.id} className="deadlineItem" style={{ cursor: "default" }}>
+                    <span style={{ width: 8, height: 8, borderRadius: "50%", background: sc.dot, flexShrink: 0 }} />
                     <div style={{ flex: 1, minWidth: 0 }}>
-                      <div style={{ fontSize: "0.719rem", fontWeight: 600, color: "#111827",
-                        overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
-                        {item.title}
-                      </div>
-                      <div style={{ fontSize: "0.625rem", color: "#9ca3af", marginTop: 2 }}>
-                        {item.project_name}
-                      </div>
+                      <div className="deadlineTitle">{site.name}</div>
+                      <div style={{ fontSize: "0.625rem", color: "#9ca3af" }}>{site.open_items ?? 0} open items</div>
                     </div>
-                    <span style={{ fontSize: "0.594rem", fontWeight: 700, padding: "1px 6px",
-                      borderRadius: 999, background: priCfg.bg, color: priCfg.color,
-                      flexShrink: 0, alignSelf: "flex-start" }}>
-                      {item.priority.charAt(0).toUpperCase() + item.priority.slice(1)}
+                    <span style={{ fontSize: "0.594rem", fontWeight: 600, padding: "1px 6px", borderRadius: 999,
+                      background: sc.bg, color: sc.text, flexShrink: 0 }}>
+                      {site.my_tasks ?? 0} tasks
                     </span>
                   </div>
                 );
-              })
-            )}
-          </div>
-        </aside>
-      )}
+              })}
+            </div>
+          )}
 
-      {/* My Work review item detail drawer */}
+        </div>
+      </div>
+
+      {/* Detail Drawer */}
       {selectedItem && (
-        <DetailDrawer item={selectedItem} onClose={() => setSelectedItem(null)} />
-      )}
-
-      {/* Kanban task detail drawer with Discussion / Activity / Assets */}
-      {selectedTask && (
-        <TaskDetailDrawer
-          task={selectedTask}
-          onClose={() => setSelectedTask(null)}
-          latestSseNotif={latestSseNotif}
-        />
+        <MyWorkDetailDrawer item={selectedItem} onClose={() => setSelectedItem(null)} />
       )}
     </div>
   );
 }
 
-// ── My Work Content ────────────────────────────────────────────────────────────
+// ── My Work Main Content ──────────────────────────────────────────────────────
 
-function MyWorkContent({ me, dueItems, waitingItems, escalations, openCount, onItemClick }) {
+function MyWorkMain({ me, dueItems, waitingItems, escalations, onItemClick }) {
   return (
-    <div>
-      <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between",
-        marginBottom: 24, background: "#fff", border: "1px solid #e5e7eb",
-        borderRadius: 12, padding: "18px 20px" }}>
-        <div style={{ display: "flex", alignItems: "center", gap: 14 }}>
-          <div style={{ width: 52, height: 52, borderRadius: "50%", flexShrink: 0,
-            background: avatarBg(me?.id), color: "#fff",
-            display: "flex", alignItems: "center", justifyContent: "center",
-            fontSize: "1.125rem", fontWeight: 700 }}>
-            {getInitials(me?.name || me?.email || "?")}
-          </div>
-          <div>
-            <div style={{ fontSize: "1.125rem", fontWeight: 700, color: "#111827" }}>
-              {me?.name || me?.email || "—"}
-            </div>
-            {me?.role && (
-              <div style={{ fontSize: "0.812rem", color: "#6b7280", marginTop: 2 }}>{me.role}</div>
-            )}
-          </div>
-        </div>
-        <div style={{ fontSize: "0.719rem", color: "#9ca3af" }}>
+    <>
+      <div className="breadcrumbBar">
+        <span className="breadcrumbCurrent">My Work</span>
+        <span style={{ marginLeft: "auto", fontSize: "0.719rem", color: "#9ca3af" }}>
           {new Date().toLocaleDateString("en-US", { weekday: "long", month: "long", day: "numeric" })}
+        </span>
+      </div>
+
+      <div style={{ flex: 1, overflowY: "auto", padding: "1.25rem 1.5rem" }}>
+
+        {/* User header */}
+        {me && (
+          <div style={{ display: "flex", alignItems: "center", gap: 14, marginBottom: 20,
+            padding: "14px 18px", background: "#fff", borderRadius: 12,
+            border: "1px solid #e5e7eb", boxShadow: "0 1px 4px rgba(0,0,0,0.04)" }}>
+            <div className="avatar avatarMd" style={{ background: avatarColor(me.id), flexShrink: 0,
+                width: "2.75rem", height: "2.75rem", minWidth: "2.75rem", fontSize: "0.875rem" }}>
+              {getInitials(me.name || me.email || "?")}
+            </div>
+            <div style={{ flex: 1, minWidth: 0 }}>
+              <div style={{ fontSize: "1rem", fontWeight: 700, color: "#111827", lineHeight: 1.2 }}>
+                {me.name || me.email}
+              </div>
+              <div style={{ fontSize: "0.75rem", color: "#6b7280", marginTop: 2 }}>Stakeholder</div>
+            </div>
+          </div>
+        )}
+
+        {/* Stats row */}
+        <div className="statsRow" style={{ border: "1px solid #e5e7eb", borderRadius: 10,
+          background: "#fff", marginBottom: 24, overflow: "hidden" }}>
+          <div className="statItem">
+            <div className="statLabel">Open Items</div>
+            <div className="statValue">{dueItems.length + waitingItems.length + escalations.length}</div>
+            <div className="statSub">Across all sites</div>
+          </div>
+          <div className="statItem">
+            <div className="statLabel">Due This Week</div>
+            <div className="statValue">{dueItems.length}</div>
+            <div className="statSub">{dueItems.length === 1 ? "1 item" : `${dueItems.length} items`}</div>
+          </div>
+          <div className="statItem">
+            <div className="statLabel">Waiting on Others</div>
+            <div className="statValue">{waitingItems.length}</div>
+            <div className="statSub">Pending external</div>
+          </div>
+          <div className="statItem">
+            <div className="statLabel">Escalations</div>
+            <div className="statValue" style={{ color: escalations.length > 0 ? "#ef4444" : "#111827" }}>
+              {escalations.length}
+            </div>
+            <div className="statSub">{escalations.length > 0 ? "Needs attention" : "All clear"}</div>
+          </div>
         </div>
-      </div>
 
-      <div style={{ display: "flex", gap: 12, marginBottom: 28, flexWrap: "wrap" }}>
-        <StatCard label="Open Items"        value={openCount}          icon={RiFileTextLine} sub="Across all sites" />
-        <StatCard label="Due This Week"     value={dueItems.length}    icon={RiCalendarLine} sub={`${dueItems.length} items`} />
-        <StatCard label="Waiting on Others" value={waitingItems.length} icon={RiTimeLine}    sub="Pending external" />
-        <StatCard label="Escalations"       value={escalations.length} icon={RiAlertLine}   sub={escalations.length > 0 ? "Needs attention" : "All clear"} trend={escalations.length > 0} />
-      </div>
+        {/* Due This Week */}
+        <SectionGroup
+          title="Due This Week"
+          icon={RiCalendarLine}
+          color="#dc2626"
+          items={dueItems}
+          onItemClick={onItemClick}
+        />
 
-      <ItemGroup title="Due This Week"     items={dueItems}     icon={RiCalendarLine} color="#dc2626" onItemClick={onItemClick} />
-      <ItemGroup title="Waiting on Others" items={waitingItems} icon={RiTimeLine}     color="#d97706" onItemClick={onItemClick} />
-      <ItemGroup title="Escalations"       items={escalations}  icon={RiAlertLine}    color="#7c3aed" onItemClick={onItemClick} />
+        {/* Waiting on Others */}
+        <SectionGroup
+          title="Waiting on Others"
+          icon={RiTimeLine}
+          color="#d97706"
+          items={waitingItems}
+          onItemClick={onItemClick}
+        />
+
+        {/* Escalations */}
+        <SectionGroup
+          title="Escalations"
+          icon={RiAlertLine}
+          color="#7c3aed"
+          items={escalations}
+          onItemClick={onItemClick}
+        />
+      </div>
+    </>
+  );
+}
+
+function SectionGroup({ title, icon: Icon, color, items, onItemClick }) {
+  return (
+    <div style={{ marginBottom: 28 }}>
+      <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 12 }}>
+        {Icon && <Icon style={{ fontSize: 14, color }} />}
+        <span style={{ fontSize: "0.875rem", fontWeight: 700, color: "#111827" }}>{title}</span>
+        <span className="kanbanColCount" style={{ background: color + "18", color }}>{items.length}</span>
+      </div>
+      {items.length === 0 ? (
+        <div className="tdEmpty">Nothing here right now</div>
+      ) : (
+        <div style={{ display: "flex", gap: 14, overflowX: "auto", paddingBottom: 8 }}>
+          {items.map((item) => (
+            <MyWorkCard key={item.id} item={item} onClick={onItemClick} />
+          ))}
+        </div>
+      )}
     </div>
   );
 }
 
-// ── Kanban Content ─────────────────────────────────────────────────────────────
+// ── My Work Card (builder-style projectCard) ──────────────────────────────────
 
-function KanbanContent({ kanban, onTaskClick }) {
-  if (!kanban) return (
-    <div style={{ textAlign: "center", padding: "4rem", color: "#9ca3af", fontSize: "0.875rem" }}>
-      No kanban data available
+function MyWorkCard({ item, onClick }) {
+  const overdue   = isOverdue(item.due_date) && item.status !== "approved_closed";
+  const sc        = STAGE_COLORS[item.stage] || { bg: "#eff6ff", text: "#2563eb", dot: "#3b82f6" };
+  const discKey   = DISC_KEY[item.discipline] || null;
+  const discClass = discKey ? DISC_TAG_CLASS[discKey] : null;
+
+  return (
+    <div
+      className="projectCard"
+      onClick={() => onClick(item)}
+      style={{ width: 240, flexShrink: 0, cursor: "pointer" }}
+    >
+      {/* Colored top area representing the project */}
+      <div className="projectCardTop" style={{ background: sc.bg, borderRadius: "8px 8px 0 0", height: 56 }}>
+        <div className="projectCardIcon" style={{ background: "rgba(255,255,255,0.7)" }}>
+          <RiMapPin2Line style={{ fontSize: 18, color: sc.dot }} />
+        </div>
+      </div>
+
+      {/* Project name + stage */}
+      <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between",
+        marginBottom: 6, gap: 6 }}>
+        <div style={{ fontSize: "0.719rem", fontWeight: 600, color: "#6b7280",
+          overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap", flex: 1 }}>
+          {item.project_name}
+        </div>
+        {item.stage && (
+          <span className="projectCardStagePill" style={{ background: sc.bg, color: sc.text, flexShrink: 0 }}>
+            {stageLabel(item.stage)}
+          </span>
+        )}
+      </div>
+
+      {/* Item title */}
+      <div className="projectCardName" style={{ fontSize: "0.812rem", marginBottom: 8, lineHeight: 1.35 }}>
+        {item.title}
+      </div>
+
+      {/* Discipline tag */}
+      {discKey && discClass && (
+        <div style={{ marginBottom: 8 }}>
+          <span className={discClass}>{discKey}</span>
+        </div>
+      )}
+
+      {/* Stats row: due date + priority */}
+      <div className="projectCardStats" style={{ marginTop: "auto" }}>
+        <div className="projectCardStatItem">
+          <span className="projectCardStatVal" style={{ color: overdue ? "#ef4444" : "#111827", fontSize: "0.75rem" }}>
+            {fmtDate(item.due_date) || "—"}
+          </span>
+          <span className="projectCardStatLabel">{overdue ? "Overdue" : "Due date"}</span>
+        </div>
+        {item.priority && (
+          <>
+            <div className="projectCardStatDivider" />
+            <div className="projectCardStatItem">
+              <span className="projectCardStatVal" style={{
+                fontSize: "0.75rem",
+                color: item.priority === "high" || item.priority === "critical" ? "#dc2626"
+                  : item.priority === "low" ? "#16a34a" : "#d97706"
+              }}>
+                {item.priority.charAt(0).toUpperCase() + item.priority.slice(1)}
+              </span>
+              <span className="projectCardStatLabel">Priority</span>
+            </div>
+          </>
+        )}
+        {item.is_escalated && (
+          <>
+            <div className="projectCardStatDivider" />
+            <div className="projectCardStatItem">
+              <RiAlertLine style={{ fontSize: 14, color: "#ef4444" }} />
+              <span className="projectCardStatLabel">Escalated</span>
+            </div>
+          </>
+        )}
+      </div>
     </div>
   );
-  const cols = kanban.columns || {};
+}
+
+// ── Sites Main Content ────────────────────────────────────────────────────────
+
+function SitesMain({ sites }) {
+  if (!sites) return (
+    <div style={{ display: "flex", alignItems: "center", justifyContent: "center", flex: 1 }}>
+      <div className="tdEmpty">Loading sites…</div>
+    </div>
+  );
+
   return (
-    <div style={{ display: "flex", gap: 14, overflowX: "auto", alignItems: "flex-start", paddingBottom: 8 }}>
-      {COLS.map((col) => {
-        const items = cols[col.key] || [];
-        return (
-          <div key={col.key} style={{ flex: "0 0 240px", minWidth: 240 }}>
-            <div style={{ display: "flex", alignItems: "center", gap: 6, padding: "6px 0 10px" }}>
-              <div style={{ width: 8, height: 8, borderRadius: "50%", background: col.color, flexShrink: 0 }} />
-              <span style={{ fontSize: "0.75rem", fontWeight: 700, color: "#374151" }}>{col.label}</span>
-              <span style={{ fontSize: "0.688rem", color: "#9ca3af", background: "#f3f4f6",
-                borderRadius: 99, padding: "1px 6px" }}>{items.length}</span>
-            </div>
-            <div>
-              {items.length === 0 ? (
-                <div style={{ padding: "20px 12px", textAlign: "center", fontSize: "0.75rem",
-                  color: "#d1d5db", border: "1.5px dashed #e5e7eb", borderRadius: 8 }}>
-                  No items
-                </div>
-              ) : items.map((t) => (
-                <KanbanCard key={t.id} task={t} onClick={onTaskClick} />
-              ))}
-            </div>
+    <>
+      <div className="breadcrumbBar">
+        <span className="breadcrumbCurrent">Sites</span>
+        <span style={{ marginLeft: "auto", fontSize: "0.719rem", color: "#9ca3af" }}>
+          {sites.length} {sites.length === 1 ? "site" : "sites"} assigned
+        </span>
+      </div>
+
+      <div style={{ flex: 1, overflowY: "auto", padding: "1.25rem 1.5rem" }}>
+        {sites.length === 0 ? (
+          <div style={{ textAlign: "center", padding: "3rem 0", color: "#9ca3af" }}>
+            <RiMapPin2Line style={{ fontSize: 32, display: "block", margin: "0 auto 10px", opacity: 0.4 }} />
+            <div style={{ fontSize: "0.875rem", fontWeight: 500 }}>No sites assigned yet</div>
           </div>
-        );
-      })}
+        ) : (
+          <div className="projectsGrid">
+            {sites.map((site) => (
+              <SiteCard key={site.id} site={site} />
+            ))}
+          </div>
+        )}
+      </div>
+    </>
+  );
+}
+
+function SiteCard({ site }) {
+  const sc = STAGE_COLORS[site.status] || { bg: "#eff6ff", text: "#2563eb", dot: "#3b82f6" };
+
+  return (
+    <div className="projectCard">
+      <div className="projectCardTop">
+        <div className="projectCardIcon" style={{ background: sc.bg }}>
+          {site.image_url
+            ? <img src={site.image_url} alt="" className="projectCardImg" />
+            : <RiMapPin2Line style={{ fontSize: 20, color: sc.dot }} />
+          }
+        </div>
+      </div>
+
+      <div className="projectCardName">{site.name}</div>
+
+      <span className="projectCardStagePill" style={{ background: sc.bg, color: sc.text }}>
+        {site.status ? site.status.replace(/_/g, " ").replace(/\b\w/g, (c) => c.toUpperCase()) : "Active"}
+      </span>
+
+      <div className="projectCardStats">
+        <div className="projectCardStatItem">
+          <span className="projectCardStatVal">{site.open_items ?? 0}</span>
+          <span className="projectCardStatLabel">Open items</span>
+        </div>
+        <div className="projectCardStatDivider" />
+        <div className="projectCardStatItem">
+          <span className="projectCardStatVal">{site.my_tasks ?? 0}</span>
+          <span className="projectCardStatLabel">My tasks</span>
+        </div>
+        <div className="projectCardStatDivider" />
+        <div className="projectCardStatItem">
+          <span className="projectCardStatVal">
+            {site.created_at
+              ? new Date(site.created_at).toLocaleDateString("en-US", { month: "short", day: "numeric" })
+              : "—"}
+          </span>
+          <span className="projectCardStatLabel">Created</span>
+        </div>
+      </div>
     </div>
   );
 }

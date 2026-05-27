@@ -937,7 +937,7 @@ export default function ProjectDetailPage() {
   const [selectedVersion, setSelectedVersion] = useState(null);
   const [allStakeholders, setAllStakeholders] = useState([]);
   const [showTeamAssign,  setShowTeamAssign]  = useState(false);
-  const [rightTab,        setRightTab]        = useState("team");
+  const [rightTab,        setRightTab]        = useState("assets");
   const teamAssignRef = useRef(null);
 
   const loadData = useCallback(async () => {
@@ -1363,7 +1363,7 @@ export default function ProjectDetailPage() {
         {/* Tab bar */}
         <div className="rightPanelHeader" style={{ padding: 0 }}>
           <div style={{ display: "flex" }}>
-            <button
+            {/* <button
               onClick={() => setRightTab("team")}
               style={{
                 flex: 1, padding: "10px 0", fontSize: "0.719rem", fontWeight: 600,
@@ -1381,7 +1381,7 @@ export default function ProjectDetailPage() {
                   {stakeholders.length}
                 </span>
               )}
-            </button>
+            </button> */}
             <button
               onClick={() => setRightTab("assets")}
               style={{
@@ -1393,7 +1393,7 @@ export default function ProjectDetailPage() {
               }}
             >
               <RiAttachment2 style={{ fontSize: 13 }} />
-              Assets
+              Assets History
               {attVersions.length > 0 && (
                 <span style={{ background: "#e0e7ff", color: "#4338ca", borderRadius: 999,
                   padding: "1px 5px", fontSize: "0.563rem", fontWeight: 700 }}>
@@ -1407,7 +1407,7 @@ export default function ProjectDetailPage() {
         <div className="rightPanelBody">
 
           {/* ── Team tab ── */}
-          {rightTab === "team" && (
+          {/* {rightTab === "team" && (
             <div>
               <div style={{ display: "flex", justifyContent: "flex-end", marginBottom: 12 }}>
                 <div style={{ position: "relative" }} ref={teamAssignRef}>
@@ -1495,7 +1495,7 @@ export default function ProjectDetailPage() {
                 </div>
               )}
             </div>
-          )}
+          )} */}
 
           {/* ── Assets tab ── */}
           {rightTab === "assets" && (

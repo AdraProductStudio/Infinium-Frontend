@@ -43,6 +43,7 @@ import {
   RiHammerLine,
   RiShieldLine,
   RiCalendarLine,
+  RiCheckDoubleLine,
 } from "react-icons/ri";
 import Sidebar from "../../components/Sidebar";
 import { useAuth } from "../../context/AuthContext";
@@ -237,7 +238,8 @@ export default function InboxPage() {
   const [loadingThreads, setLoadingThreads] = useState(false);
   const [loadingThread, setLoadingThread] = useState(false);
   const [sendingReply, setSendingReply] = useState(false);
-  const [extracting, setExtracting] = useState(false);
+  const [extracting,        setExtracting]        = useState(false);
+  const [alreadyExtracted,  setAlreadyExtracted]  = useState(false);
   const [syncingAccount, setSyncingAccount] = useState(false);
   const [gmailError, setGmailError] = useState(false);
   const [emails, setEmails] = useState([]);
@@ -271,6 +273,7 @@ export default function InboxPage() {
   const initRan = useRef(false);
   const fileInputRefs = useRef({});
   const replyInputRef = useRef(null);
+  const threadContentRef = useRef(null);
 
   const loadEmails = async () => {
     setFetchingEmails(true);
@@ -336,6 +339,7 @@ export default function InboxPage() {
     if (DEV_BYPASS) return;
     if (authCode) return;
     if (!authLoading && !user) router.push("/login");
+    if (!authLoading && user?.role === "user") router.push("/stakeholder");
   }, [authLoading, user, router, authCode]);
 
   // ── Load projects & stakeholders ──
@@ -450,6 +454,25 @@ export default function InboxPage() {
     try {
       const res = await extractConfirmItems(threadId);
       const raw = res.data || {};
+
+      if (raw.already_extracted || raw.thread_type === "no_new_messages") {
+        setAlreadyExtracted(true);
+        // Ensure the confirmed tasks are visible in the panel
+        try {
+          const confirmedRes = await getThreadReviewItems(threadId);
+          const confirmedData = confirmedRes?.data;
+          if (confirmedData?.review_items?.length > 0) {
+            setActiveThread((t) => ({
+              ...t,
+              review_items: confirmedData.review_items.map((ri) => ({ ...ri, is_saved: true })),
+              draft_status: "confirmed",
+            }));
+            if (confirmedData.project_id) setSelectedProjectId(confirmedData.project_id);
+          }
+        } catch { /* ignore */ }
+        return;
+      }
+      setAlreadyExtracted(false);
 
       // Normalise AI output → always an array of review items
       let rawRIs = Array.isArray(raw.review_items) ? raw.review_items : [];
@@ -815,7 +838,9 @@ export default function InboxPage() {
   // ── Open email from list ──
   const openEmail = async (email) => {
     if (loadingThread) return;
+    setAlreadyExtracted(false);
     setActiveEmailId(email.id);
+    setExpandedReplies(new Set());
     setActiveThread({
       id: email.id,
       thread_id: email.thread_id,
@@ -887,19 +912,35 @@ export default function InboxPage() {
         }
       }
 
+      const allMsgs = msgs ? msgs.map(toMessage) : [toMessage(email)];
       setActiveThread({
         id: email.id,
         thread_id: email.thread_id,
         subject: msgs ? (msgs[0].subject || email.subject) : email.subject,
         _isEmail: true,
-        messages: msgs ? msgs.map(toMessage) : [toMessage(email)],
+        messages: allMsgs,
         review_items: reviewItems,
         ai_processed: false,
         draft_status: draftStatus,
         draft_id: draftId,
       });
 
-      if (confirmedProjectId) setSelectedProjectId(confirmedProjectId);
+      // Auto-expand and scroll to the latest message in the thread
+      if (allMsgs.length > 1) {
+        setExpandedReplies(new Set([allMsgs[allMsgs.length - 1].id]));
+      }
+      setTimeout(() => {
+        if (threadContentRef.current) {
+          threadContentRef.current.scrollTop = threadContentRef.current.scrollHeight;
+        }
+      }, 300);
+
+      const autoProjectId =
+        confirmedProjectId ||
+        (email.project_id && projects.find((p) => p.id === email.project_id)
+          ? email.project_id
+          : null);
+      if (autoProjectId) setSelectedProjectId(autoProjectId);
     } catch {
       // keep the partial state already shown
     } finally {
@@ -1052,8 +1093,8 @@ export default function InboxPage() {
                     </div>
                     <div className="emailSubject">{email.subject}</div>
                     <div className="emailMeta">
-                      {(email.project_name || email.project_id) && (
-                        <span className="emailTag">{email.project_name || `Project ${email.project_id}`}</span>
+                      {email.project_name && (
+                        <span className="emailTag">{email.project_name}</span>
                       )}
                     </div>
                   </div>
@@ -1151,7 +1192,7 @@ export default function InboxPage() {
             </h1>
 
             {/* Scrollable content */}
-            <div className="threadContent">
+            <div className="threadContent" ref={threadContentRef}>
               {/* Main email */}
               {loadingThread ? (
                 <div className="threadLoader">
@@ -1471,11 +1512,34 @@ export default function InboxPage() {
               className="createReviewBtn"
               onClick={handleExtract}
               disabled={extracting || !activeThread}
+              title={activeThread?.draft_status === "confirmed" ? "Re-extract to check for new messages" : ""}
             >
-              {extracting ? "Extracting…" : "Extract Items"}
+              {extracting ? "Extracting…" : activeThread?.draft_status === "confirmed" ? "Check New Messages" : "Extract Items"}
             </button>
           </div>
         </div>
+
+        {/* Already-extracted notice */}
+        {alreadyExtracted && (
+          <div style={{
+            display: "flex", alignItems: "flex-start", gap: 10,
+            margin: "10px 12px 2px",
+            padding: "10px 12px",
+            background: "#f0fdf4",
+            border: "1px solid #bbf7d0",
+            borderRadius: 8,
+          }}>
+            <RiCheckDoubleLine style={{ fontSize: 16, color: "#16a34a", flexShrink: 0, marginTop: 1 }} />
+            <div>
+              <div style={{ fontSize: "0.75rem", fontWeight: 600, color: "#15803d", lineHeight: 1.3 }}>
+                Tasks already created
+              </div>
+              <div style={{ fontSize: "0.688rem", color: "#166534", marginTop: 2, lineHeight: 1.4 }}>
+                No new messages to process for this thread.
+              </div>
+            </div>
+          </div>
+        )}
 
         {/* Project selector + Save to Project */}
         {reviewItems.length > 0 && (
