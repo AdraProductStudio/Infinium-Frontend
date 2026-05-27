@@ -15,6 +15,7 @@ import {
   RiHistoryLine,
   RiTimeLine,
   RiUserLine,
+  RiUserAddLine,
   RiCheckLine,
   RiRefreshLine,
   RiUpload2Line,
@@ -38,6 +39,9 @@ import {
   uploadAttachmentVersion,
   getAttachmentGroupHistory,
   reviewAttachment,
+  getAttachmentUrl,
+  getProjectStakeholders,
+  assignStakeholderToTask,
 } from "../../../../../lib/api";
 import {
   DISC_LABEL,
@@ -200,239 +204,544 @@ function HistoryEntry({ entry }) {
   );
 }
 
-/* ── Attachment Group component ── */
-function AttachmentGroup({ group, onUploadVersion, onReview, onDownload }) {
-  const [expanded, setExpanded]   = useState(false);
-  const [history, setHistory]     = useState(null);
-  const [loadingHist, setLoadingHist] = useState(false);
-  const [reviewing, setReviewing] = useState(false);
-  const fileRef = useRef(null);
+/* ── Diff helpers ── */
+const TEXT_EXTS = new Set(["txt", "csv", "md", "json", "xml", "html", "css", "js", "ts"]);
+const IMG_EXTS  = new Set(["png", "jpg", "jpeg", "gif", "webp", "svg"]);
 
-  const att       = group;  // latest version fields are on the group object
-  const source    = att.source || "email";
-  const srcCfg    = SOURCE_CONFIG[source] || SOURCE_CONFIG.email;
-  const SrcIcon   = srcCfg.icon;
-  const rvStatus  = att.review_status || "pending";
-  const rvCfg     = REVIEW_STATUS_CONFIG[rvStatus] || REVIEW_STATUS_CONFIG.pending;
-  const Icon      = fileIcon(att.file_name || "");
-  const vCount    = att.version_count || 1;
+function getExt(name = "") { return (name || "").split(".").pop().toLowerCase(); }
 
-  async function handleToggleHistory() {
-    if (expanded) { setExpanded(false); return; }
-    setLoadingHist(true);
-    try {
-      const res = await getAttachmentGroupHistory(att.group_id);
-      setHistory(res?.data || []);
-      setExpanded(true);
-    } catch { toast.error("Failed to load history"); }
-    finally { setLoadingHist(false); }
+function lcsLineDiff(oldLines, newLines) {
+  /* Myers LCS — returns [{type:'equal'|'removed'|'added', line}] */
+  const O = oldLines.length, N = newLines.length;
+  const dp = Array.from({ length: O + 1 }, () => new Uint32Array(N + 1));
+  for (let i = 1; i <= O; i++)
+    for (let j = 1; j <= N; j++)
+      dp[i][j] = oldLines[i-1] === newLines[j-1]
+        ? dp[i-1][j-1] + 1
+        : Math.max(dp[i-1][j], dp[i][j-1]);
+  const out = [];
+  let i = O, j = N;
+  while (i > 0 || j > 0) {
+    if (i > 0 && j > 0 && oldLines[i-1] === newLines[j-1]) {
+      out.unshift({ type: "equal",   line: oldLines[i-1] }); i--; j--;
+    } else if (j > 0 && (i === 0 || dp[i][j-1] >= dp[i-1][j])) {
+      out.unshift({ type: "added",   line: newLines[j-1] }); j--;
+    } else {
+      out.unshift({ type: "removed", line: oldLines[i-1] }); i--;
+    }
   }
+  return out;
+}
 
-  async function handleReviewClick(status) {
-    setReviewing(true);
-    try {
-      await onReview(att.attachment_id, att.group_id, status);
-    } finally { setReviewing(false); }
+function MetaDiff({ a, b }) {
+  const rows = [];
+  const fmt = (v) => v ? `${(v / (1024*1024)).toFixed(2)} MB` : "–";
+  if (a.file_size !== b.file_size) {
+    const delta = b.file_size - a.file_size;
+    rows.push(["File size",
+      fmt(a.file_size),
+      <span style={{ color: delta > 0 ? "#dc2626" : "#16a34a" }}>
+        {fmt(b.file_size)} ({delta > 0 ? "+" : ""}{(delta / 1024).toFixed(0)} KB)
+      </span>
+    ]);
   }
+  if ((a.source || "") !== (b.source || ""))
+    rows.push(["Uploaded by", GH_SOURCE[a.source]?.label || a.source, GH_SOURCE[b.source]?.label || b.source]);
+  if ((a.review_status || "") !== (b.review_status || ""))
+    rows.push(["Review status", GH_REVIEW[a.review_status]?.label || a.review_status, GH_REVIEW[b.review_status]?.label || b.review_status]);
+  if ((a.version_note || "") !== (b.version_note || ""))
+    rows.push(["Note", a.version_note || "–", b.version_note || "–"]);
+  if (!rows.length)
+    return <p style={{ fontSize: "0.75rem", color: "#9ca3af", marginTop: 8 }}>No metadata changes between these versions.</p>;
+  return (
+    <table style={{ width: "100%", borderCollapse: "collapse", marginTop: 10, fontSize: "0.75rem" }}>
+      <thead>
+        <tr>
+          {["Field", `v${a.version}`, `v${b.version}`].map((h) => (
+            <th key={h} style={{ textAlign: "left", padding: "4px 8px", background: "#f3f4f6", color: "#6b7280", fontWeight: 600, borderBottom: "1px solid #e5e7eb" }}>{h}</th>
+          ))}
+        </tr>
+      </thead>
+      <tbody>
+        {rows.map(([field, from, to], i) => (
+          <tr key={i} style={{ borderBottom: "1px solid #f3f4f6" }}>
+            <td style={{ padding: "5px 8px", color: "#374151", fontWeight: 500 }}>{field}</td>
+            <td style={{ padding: "5px 8px", color: "#dc2626", textDecoration: "line-through" }}>{from}</td>
+            <td style={{ padding: "5px 8px", color: "#16a34a" }}>{to}</td>
+          </tr>
+        ))}
+      </tbody>
+    </table>
+  );
+}
 
-  function handleFileChange(e) {
-    const file = e.target.files?.[0];
-    if (!file) return;
-    onUploadVersion(att.group_id, file);
-    e.target.value = "";
-  }
+function DiffModal({ vA, vB, onClose }) {
+  const [state, setState] = useState("loading"); // loading | image | text | meta | error
+  const [urlA,  setUrlA]  = useState(null);
+  const [urlB,  setUrlB]  = useState(null);
+  const [diff,  setDiff]  = useState(null);   // for text diff
+  const ext = getExt(vB.file_name || vA.file_name);
+
+  useEffect(() => {
+    async function load() {
+      try {
+        const [ua, ub] = await Promise.all([
+          getAttachmentUrl(vA.id),
+          getAttachmentUrl(vB.id),
+        ]);
+        setUrlA(ua); setUrlB(ub);
+
+        if (IMG_EXTS.has(ext)) {
+          setState("image");
+        } else if (TEXT_EXTS.has(ext)) {
+          const [ta, tb] = await Promise.all([
+            fetch(ua).then((r) => r.text()),
+            fetch(ub).then((r) => r.text()),
+          ]);
+          const dLines = lcsLineDiff(ta.split("\n"), tb.split("\n"));
+          setDiff(dLines);
+          setState("text");
+        } else {
+          setState("meta");
+        }
+      } catch { setState("error"); }
+    }
+    load();
+  }, [vA.id, vB.id, ext]);
+
+  /* Trap scroll behind modal */
+  useEffect(() => {
+    document.body.style.overflow = "hidden";
+    return () => { document.body.style.overflow = ""; };
+  }, []);
 
   return (
-    <div style={{
-      border: "1px solid #e5e7eb",
-      borderRadius: "0.5rem",
-      overflow: "hidden",
-      marginBottom: "0.625rem",
-    }}>
-      {/* ── Group header ── */}
+    <div
+      onClick={(e) => e.target === e.currentTarget && onClose()}
+      style={{
+        position: "fixed", inset: 0, zIndex: 1000,
+        background: "rgba(0,0,0,0.45)", display: "flex",
+        alignItems: "center", justifyContent: "center",
+        padding: "1rem",
+      }}
+    >
       <div style={{
-        display: "flex", alignItems: "center", gap: "0.5rem",
-        padding: "0.625rem 0.75rem",
-        background: "#fafafa",
-        borderBottom: expanded ? "1px solid #e5e7eb" : "none",
+        background: "#fff", borderRadius: 12,
+        width: "min(860px, 95vw)", maxHeight: "90vh",
+        display: "flex", flexDirection: "column",
+        boxShadow: "0 20px 60px rgba(0,0,0,0.25)",
+        overflow: "hidden",
       }}>
-        <Icon style={{ fontSize: 16, color: "#6b7280", flexShrink: 0 }} />
-        <span style={{ fontSize: "0.812rem", fontWeight: 600, color: "#111827", flex: 1, minWidth: 0,
-          overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
-          {att.name || att.file_name}
-        </span>
-        {/* source badge */}
-        <span style={{
-          display: "inline-flex", alignItems: "center", gap: 3,
-          fontSize: "0.688rem", fontWeight: 500, padding: "2px 6px",
-          borderRadius: "999px", background: srcCfg.bg, color: srcCfg.color,
-          flexShrink: 0,
+        {/* header */}
+        <div style={{
+          display: "flex", alignItems: "center", gap: 8,
+          padding: "14px 18px", borderBottom: "1px solid #e5e7eb",
+          background: "#faf5ff",
         }}>
-          <SrcIcon style={{ fontSize: 10 }} />
-          {srcCfg.label}
-        </span>
-        {/* version badge */}
-        <span style={{
-          fontSize: "0.688rem", fontWeight: 600, padding: "2px 6px",
-          borderRadius: "999px", background: "#e0e7ff", color: "#4338ca",
-          flexShrink: 0,
-        }}>
-          v{att.version}
-        </span>
-      </div>
-
-      {/* ── Latest version row ── */}
-      <div style={{ padding: "0.5rem 0.75rem" }}>
-        <div style={{ display: "flex", alignItems: "center", gap: "0.5rem", flexWrap: "wrap" }}>
-          <span style={{ fontSize: "0.75rem", color: "#6b7280", flex: 1 }}>
-            {att.file_name}
-            {att.file_size ? <span style={{ marginLeft: 6, color: "#9ca3af" }}>({formatBytes(att.file_size)})</span> : null}
+          <RiArrowLeftLine style={{ fontSize: 14, color: "#9ca3af" }} />
+          <code style={{ fontSize: "0.75rem", fontWeight: 700, color: "#6d28d9", background: "#ede9fe", padding: "2px 8px", borderRadius: 4 }}>v{vA.version}</code>
+          <span style={{ fontSize: "0.75rem", color: "#9ca3af" }}>→</span>
+          <code style={{ fontSize: "0.75rem", fontWeight: 700, color: "#16a34a", background: "#dcfce7", padding: "2px 8px", borderRadius: 4 }}>v{vB.version}</code>
+          <span style={{ fontSize: "0.812rem", fontWeight: 600, color: "#111827", flex: 1, marginLeft: 6 }}>
+            {vB.file_name}
           </span>
-          {/* review status */}
-          <span style={{
-            fontSize: "0.688rem", fontWeight: 500, padding: "2px 7px",
-            borderRadius: "999px", background: rvCfg.bg, color: rvCfg.color,
-            flexShrink: 0,
-          }}>
-            {rvCfg.label}
-          </span>
-          {/* download */}
-          <button
-            onClick={() => onDownload(att.attachment_id)}
-            title="Download"
-            style={{ background: "none", border: "none", cursor: "pointer", color: "#6b7280", padding: 2 }}
-          >
-            <RiDownload2Line style={{ fontSize: 14 }} />
-          </button>
+          <button onClick={onClose} style={{ background: "none", border: "none", cursor: "pointer", color: "#6b7280", fontSize: 18, lineHeight: 1, padding: 2 }}>×</button>
         </div>
 
-        {att.version_note && (
-          <div style={{ fontSize: "0.75rem", color: "#6b7280", marginTop: "0.25rem", fontStyle: "italic" }}>
-            {att.version_note}
-          </div>
-        )}
-
-        {/* actions row */}
-        <div style={{ display: "flex", alignItems: "center", gap: "0.375rem", marginTop: "0.5rem", flexWrap: "wrap" }}>
-          {/* upload new version */}
-          <input type="file" ref={fileRef} style={{ display: "none" }} onChange={handleFileChange} />
-          <button
-            onClick={() => fileRef.current?.click()}
-            style={{
-              display: "inline-flex", alignItems: "center", gap: 4,
-              fontSize: "0.719rem", padding: "3px 8px", borderRadius: "0.25rem",
-              border: "1px solid #d1d5db", background: "#fff", color: "#374151",
-              cursor: "pointer",
-            }}
-          >
-            <RiUpload2Line style={{ fontSize: 11 }} /> Upload v{(att.version || 1) + 1}
-          </button>
-
-          {/* builder review actions (shown when pending) */}
-          {rvStatus === "pending" && (
-            <>
-              <button
-                disabled={reviewing}
-                onClick={() => handleReviewClick("approved")}
-                style={{
-                  display: "inline-flex", alignItems: "center", gap: 4,
-                  fontSize: "0.719rem", padding: "3px 8px", borderRadius: "0.25rem",
-                  border: "1px solid #16a34a", background: "#f0fdf4", color: "#16a34a",
-                  cursor: "pointer",
-                }}
-              >
-                <RiCheckLine style={{ fontSize: 11 }} /> Approve
-              </button>
-              <button
-                disabled={reviewing}
-                onClick={() => handleReviewClick("revision_requested")}
-                style={{
-                  display: "inline-flex", alignItems: "center", gap: 4,
-                  fontSize: "0.719rem", padding: "3px 8px", borderRadius: "0.25rem",
-                  border: "1px solid #dc2626", background: "#fef2f2", color: "#dc2626",
-                  cursor: "pointer",
-                }}
-              >
-                <RiRefreshLine style={{ fontSize: 11 }} /> Request Revision
-              </button>
-            </>
-          )}
-
-          {/* history toggle */}
-          {vCount > 1 && (
-            <button
-              onClick={handleToggleHistory}
-              disabled={loadingHist}
-              style={{
-                marginLeft: "auto",
-                display: "inline-flex", alignItems: "center", gap: 3,
-                fontSize: "0.719rem", padding: "3px 8px", borderRadius: "0.25rem",
-                border: "1px solid #e5e7eb", background: "#f9fafb", color: "#6b7280",
-                cursor: "pointer",
-              }}
-            >
-              {loadingHist ? "Loading…" : (
-                <>
-                  {vCount} versions
-                  {expanded ? <RiArrowUpSLine style={{ fontSize: 12 }} /> : <RiArrowDownSLine style={{ fontSize: 12 }} />}
-                </>
-              )}
-            </button>
-          )}
-        </div>
-      </div>
-
-      {/* ── Version history list ── */}
-      {expanded && history && (
-        <div style={{ borderTop: "1px solid #e5e7eb", background: "#f9fafb" }}>
-          {history.map((v, idx) => {
-            const isLatest = v.is_latest;
-            const vSrc     = SOURCE_CONFIG[v.source] || SOURCE_CONFIG.email;
-            const vRv      = REVIEW_STATUS_CONFIG[v.review_status] || REVIEW_STATUS_CONFIG.pending;
+        {/* who + when row */}
+        <div style={{
+          display: "flex", gap: 0,
+          borderBottom: "1px solid #e5e7eb",
+          fontSize: "0.719rem",
+        }}>
+          {[vA, vB].map((v, i) => {
+            const srcCfg = GH_SOURCE[v.source] || GH_SOURCE.email;
+            const rvCfg  = GH_REVIEW[v.review_status] || GH_REVIEW.pending;
             return (
-              <div key={v.id} style={{
-                display: "flex", alignItems: "flex-start", gap: "0.5rem",
-                padding: "0.5rem 0.75rem",
-                borderBottom: idx < history.length - 1 ? "1px solid #f3f4f6" : "none",
-                opacity: isLatest ? 1 : 0.7,
+              <div key={i} style={{
+                flex: 1, padding: "10px 16px",
+                borderRight: i === 0 ? "1px solid #e5e7eb" : "none",
+                background: i === 0 ? "#fef2f2" : "#f0fdf4",
               }}>
-                <span style={{
-                  fontSize: "0.688rem", fontWeight: 700, padding: "2px 6px",
-                  borderRadius: "999px", background: isLatest ? "#e0e7ff" : "#f3f4f6",
-                  color: isLatest ? "#4338ca" : "#9ca3af",
-                  flexShrink: 0, marginTop: 2,
-                }}>
-                  v{v.version}
-                </span>
-                <div style={{ flex: 1, minWidth: 0 }}>
-                  <div style={{ fontSize: "0.75rem", color: "#374151", fontWeight: isLatest ? 600 : 400 }}>
-                    {v.file_name}
-                    {v.file_size ? <span style={{ marginLeft: 5, color: "#9ca3af", fontWeight: 400 }}>({formatBytes(v.file_size)})</span> : null}
-                  </div>
-                  {v.version_note && (
-                    <div style={{ fontSize: "0.7rem", color: "#6b7280", fontStyle: "italic" }}>{v.version_note}</div>
-                  )}
-                  <div style={{ display: "flex", alignItems: "center", gap: 6, marginTop: "0.2rem", flexWrap: "wrap" }}>
-                    <span style={{ fontSize: "0.688rem", color: vSrc.color }}>{vSrc.label}</span>
-                    <span style={{ fontSize: "0.625rem", color: "#d1d5db" }}>·</span>
-                    <span style={{ fontSize: "0.688rem", color: vRv.color }}>{vRv.label}</span>
-                    <span style={{ fontSize: "0.625rem", color: "#d1d5db" }}>·</span>
-                    <span style={{ fontSize: "0.688rem", color: "#9ca3af" }}>{timeAgo(v.created_at)}</span>
-                  </div>
+                <div style={{ fontWeight: 700, color: "#374151", marginBottom: 4 }}>
+                  v{v.version} {v.is_latest ? <span style={{ fontSize: "0.594rem", background: "#dcfce7", color: "#15803d", padding: "1px 5px", borderRadius: 999, border: "1px solid #bbf7d0" }}>HEAD</span> : ""}
                 </div>
-                <button
-                  onClick={() => onDownload(v.id)}
-                  title="Download this version"
-                  style={{ background: "none", border: "none", cursor: "pointer", color: "#9ca3af", padding: 2, flexShrink: 0 }}
-                >
-                  <RiDownload2Line style={{ fontSize: 13 }} />
-                </button>
+                <div style={{ color: "#6b7280" }}>
+                  <span style={{ fontWeight: 600, color: srcCfg.color }}>{v.uploaded_by_name || srcCfg.label}</span>
+                  {" uploaded · "}
+                  {v.created_at ? new Date(v.created_at).toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" }) : "–"}
+                </div>
+                {v.reviewed_by_name && (
+                  <div style={{ color: "#6b7280", marginTop: 2 }}>
+                    <span style={{ fontWeight: 600, color: rvCfg.color }}>{v.reviewed_by_name}</span>
+                    {" " + (v.review_status === "approved" ? "approved" : "requested revision")}
+                  </div>
+                )}
+                {v.version_note && <div style={{ color: "#9ca3af", fontStyle: "italic", marginTop: 2 }}>"{v.version_note}"</div>}
               </div>
             );
           })}
         </div>
-      )}
+
+        {/* diff body */}
+        <div style={{ flex: 1, overflow: "auto", padding: "16px 18px" }}>
+          {state === "loading" && (
+            <div style={{ textAlign: "center", padding: "2rem", color: "#9ca3af", fontSize: "0.75rem" }}>Loading diff…</div>
+          )}
+          {state === "error" && (
+            <div style={{ textAlign: "center", padding: "2rem", color: "#ef4444", fontSize: "0.75rem" }}>Could not load file content.</div>
+          )}
+          {state === "image" && (
+            <div>
+              <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 12 }}>
+                {[{ url: urlA, v: vA }, { url: urlB, v: vB }].map(({ url, v }, i) => (
+                  <div key={i}>
+                    <div style={{ fontSize: "0.688rem", fontWeight: 700, color: i === 0 ? "#dc2626" : "#16a34a", marginBottom: 6 }}>
+                      v{v.version} — {i === 0 ? "Before" : "After"}
+                    </div>
+                    <div style={{ border: "1px solid #e5e7eb", borderRadius: 8, overflow: "hidden", background: "#f9fafb" }}>
+                      <img src={url} alt={`v${v.version}`} style={{ width: "100%", display: "block", objectFit: "contain", maxHeight: 380 }} />
+                    </div>
+                  </div>
+                ))}
+              </div>
+              <MetaDiff a={vA} b={vB} />
+            </div>
+          )}
+          {state === "text" && diff && (
+            <div>
+              <div style={{ fontFamily: "monospace", fontSize: "0.719rem", border: "1px solid #e5e7eb", borderRadius: 8, overflow: "hidden" }}>
+                {diff.map((d, i) => (
+                  <div key={i} style={{
+                    padding: "1px 12px",
+                    background: d.type === "added" ? "#f0fdf4" : d.type === "removed" ? "#fef2f2" : "#fff",
+                    color:      d.type === "added" ? "#16a34a" : d.type === "removed" ? "#dc2626" : "#374151",
+                    borderBottom: i < diff.length - 1 ? "1px solid #f3f4f6" : "none",
+                    display: "flex", gap: 12,
+                  }}>
+                    <span style={{ color: "#d1d5db", userSelect: "none", minWidth: 14 }}>
+                      {d.type === "added" ? "+" : d.type === "removed" ? "−" : " "}
+                    </span>
+                    <span style={{ whiteSpace: "pre-wrap", wordBreak: "break-all" }}>{d.line || " "}</span>
+                  </div>
+                ))}
+              </div>
+              <MetaDiff a={vA} b={vB} />
+            </div>
+          )}
+          {state === "meta" && <MetaDiff a={vA} b={vB} />}
+        </div>
+      </div>
     </div>
+  );
+}
+
+/* ── Option 2: Per-file accordion with GitHub releases-style version spine ── */
+const GH_SPINE = "#d8b4fe";
+const GH_REVIEW = {
+  pending:            { label: "Pending Review",    color: "#d97706", dot: "#f59e0b", bg: "#fffbeb" },
+  approved:           { label: "Approved",          color: "#16a34a", dot: "#22c55e", bg: "#f0fdf4" },
+  revision_requested: { label: "Needs Revision",    color: "#dc2626", dot: "#ef4444", bg: "#fef2f2" },
+};
+const GH_SOURCE = {
+  email:       { label: "Email",       color: "#6b7280", bg: "#f3f4f6" },
+  builder:     { label: "Builder",     color: "#2563eb", bg: "#eff6ff" },
+  stakeholder: { label: "Stakeholder", color: "#7c3aed", bg: "#f5f3ff" },
+};
+
+function AttachmentGroup({ group, onUploadVersion, onReview, onDownload }) {
+  const [open,        setOpen]        = useState(false);
+  const [history,     setHistory]     = useState(null);
+  const [loadingHist, setLoadingHist] = useState(false);
+  const [reviewing,   setReviewing]   = useState(false);
+  const [diff,        setDiff]        = useState(null); // {a, b} version objects for DiffModal
+  const fileRef = useRef(null);
+
+  const att      = group;
+  const rvStatus = att.review_status || "pending";
+  const rvCfg    = GH_REVIEW[rvStatus]  || GH_REVIEW.pending;
+  const Icon     = fileIcon(att.file_name || "");
+  const vCount   = att.version_count || 1;
+
+  async function handleToggle() {
+    if (open) { setOpen(false); return; }
+    if (!history) {
+      setLoadingHist(true);
+      try {
+        const res = await getAttachmentGroupHistory(att.group_id);
+        const sorted = (res?.data || []).slice().sort((a, b) => b.version - a.version);
+        setHistory(sorted);
+      } catch { toast.error("Failed to load history"); }
+      finally { setLoadingHist(false); }
+    }
+    setOpen(true);
+  }
+
+  async function handleReviewClick(status) {
+    setReviewing(true);
+    try { await onReview(att.attachment_id, att.group_id, status); }
+    finally { setReviewing(false); }
+  }
+
+  function handleFileChange(e) {
+    const f = e.target.files?.[0];
+    if (!f) return;
+    onUploadVersion(att.group_id, f);
+    e.target.value = "";
+  }
+
+  return (
+    <>
+      {diff && <DiffModal vA={diff.a} vB={diff.b} onClose={() => setDiff(null)} />}
+
+      <div style={{
+        border: `1px solid ${open ? "#ddd6fe" : "#e5e7eb"}`,
+        borderRadius: "0.5rem",
+        overflow: "hidden",
+        marginBottom: "0.75rem",
+        transition: "border-color 0.15s",
+      }}>
+
+        {/* ════ File header ════ */}
+        <div
+          onClick={handleToggle}
+          style={{
+            display: "flex", alignItems: "center", gap: "0.5rem",
+            padding: "0.625rem 0.75rem",
+            background: open ? "#faf5ff" : "#fafafa",
+            borderBottom: open ? "1px solid #ddd6fe" : "none",
+            cursor: "pointer", userSelect: "none",
+          }}
+        >
+          <Icon style={{ fontSize: 15, color: open ? "#7c3aed" : "#6b7280", flexShrink: 0 }} />
+          <span style={{
+            fontSize: "0.812rem", fontWeight: 600, color: "#111827",
+            flex: 1, minWidth: 0, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap",
+          }}>
+            {att.name || att.file_name}
+          </span>
+          <span style={{ fontSize: "0.625rem", fontWeight: 600, padding: "1px 7px", borderRadius: 999, background: "#ede9fe", color: "#6d28d9", flexShrink: 0 }}>
+            {vCount} {vCount === 1 ? "version" : "versions"}
+          </span>
+          <span style={{
+            display: "inline-flex", alignItems: "center", gap: 4,
+            fontSize: "0.688rem", fontWeight: 500, padding: "2px 8px", borderRadius: 999,
+            background: rvCfg.bg, color: rvCfg.color, flexShrink: 0,
+          }}>
+            <span style={{ width: 6, height: 6, borderRadius: "50%", background: rvCfg.dot }} />
+            {rvCfg.label}
+          </span>
+          <input type="file" ref={fileRef} style={{ display: "none" }} onChange={handleFileChange} />
+          <button
+            onClick={(e) => { e.stopPropagation(); fileRef.current?.click(); }}
+            style={{
+              display: "inline-flex", alignItems: "center", gap: 3,
+              fontSize: "0.688rem", fontWeight: 500, padding: "2px 8px", borderRadius: 999,
+              border: "1px solid #d1d5db", background: "#fff", color: "#374151",
+              cursor: "pointer", flexShrink: 0,
+            }}
+          >
+            <RiUpload2Line style={{ fontSize: 11 }} /> New version
+          </button>
+          {loadingHist
+            ? <span style={{ fontSize: "0.625rem", color: "#9ca3af" }}>…</span>
+            : open
+              ? <RiArrowUpSLine  style={{ fontSize: 14, color: "#9ca3af", flexShrink: 0 }} />
+              : <RiArrowDownSLine style={{ fontSize: 14, color: "#9ca3af", flexShrink: 0 }} />
+          }
+        </div>
+
+        {/* ════ Version spine ════ */}
+        {open && history && (
+          <div style={{ padding: "12px 14px 10px" }}>
+            {history.map((v, idx) => {
+              const isLatest = v.is_latest;
+              const isLast   = idx === history.length - 1;
+              const vRv      = GH_REVIEW[v.review_status] || GH_REVIEW.pending;
+              const vSrc     = GH_SOURCE[v.source]         || GH_SOURCE.email;
+              const VIcon    = fileIcon(v.file_name || "");
+              /* Compare button: shown between this version and the next (older) one */
+              const nextV    = history[idx + 1];
+
+              return (
+                <div key={v.id}>
+                  <div style={{ display: "flex" }}>
+
+                    {/* Spine */}
+                    <div style={{ display: "flex", flexDirection: "column", alignItems: "center", width: 26, flexShrink: 0 }}>
+                      <div style={{ position: "relative", marginTop: 10, flexShrink: 0 }}>
+                        {isLatest && (
+                          <div style={{ position: "absolute", inset: -4, borderRadius: "50%", border: `2px solid ${vRv.dot}`, opacity: 0.25 }} />
+                        )}
+                        <div style={{
+                          width: isLatest ? 12 : 9, height: isLatest ? 12 : 9,
+                          borderRadius: "50%",
+                          background: isLatest ? vRv.dot : "#fff",
+                          border: `2px solid ${isLatest ? vRv.dot : GH_SPINE}`,
+                          position: "relative", zIndex: 1,
+                        }} />
+                      </div>
+                      {!isLast && (
+                        <div style={{ width: 2, flex: 1, minHeight: 16, background: GH_SPINE, borderRadius: 1, marginTop: 3 }} />
+                      )}
+                    </div>
+
+                    {/* Version card */}
+                    <div style={{
+                      flex: 1, marginLeft: 8, marginTop: 4,
+                      marginBottom: nextV ? 4 : (isLast ? 0 : 12),
+                      background: isLatest ? "#faf5ff" : "#fafafa",
+                      border: `1px solid ${isLatest ? "#ddd6fe" : "#f0f0f0"}`,
+                      borderRadius: 7, padding: "9px 12px",
+                    }}>
+
+                      {/* row 1: file + size + HEAD + v{n} */}
+                      <div style={{ display: "flex", alignItems: "center", gap: 6, marginBottom: 5 }}>
+                        <VIcon style={{ fontSize: 12, color: "#6b7280", flexShrink: 0 }} />
+                        <span style={{
+                          fontSize: "0.75rem", fontWeight: isLatest ? 700 : 500,
+                          color: "#111827", flex: 1, minWidth: 0,
+                          overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap",
+                        }}>
+                          {v.file_name}
+                          {v.file_size
+                            ? <span style={{ marginLeft: 5, fontWeight: 400, color: "#9ca3af", fontSize: "0.688rem" }}>({formatBytes(v.file_size)})</span>
+                            : null}
+                        </span>
+                        {isLatest && (
+                          <span style={{ fontSize: "0.563rem", fontWeight: 700, padding: "1px 6px", borderRadius: 999, background: "#dcfce7", color: "#15803d", border: "1px solid #bbf7d0", flexShrink: 0 }}>
+                            HEAD
+                          </span>
+                        )}
+                        <code style={{
+                          fontSize: "0.594rem", fontWeight: 700, padding: "1px 6px", borderRadius: 4,
+                          background: isLatest ? "#ede9fe" : "#f3f4f6",
+                          color: isLatest ? "#6d28d9" : "#9ca3af",
+                          fontFamily: "monospace", flexShrink: 0,
+                        }}>
+                          v{v.version}
+                        </code>
+                      </div>
+
+                      {/* row 2: who attached */}
+                      <div style={{ display: "flex", alignItems: "center", gap: 5, marginBottom: 4, flexWrap: "wrap" }}>
+                        <span style={{ fontSize: "0.625rem", fontWeight: 600, padding: "1px 6px", borderRadius: 999, background: vSrc.bg, color: vSrc.color }}>
+                          {vSrc.label}
+                        </span>
+                        <span style={{ fontSize: "0.688rem", fontWeight: 600, color: "#374151" }}>
+                          {v.uploaded_by_name || vSrc.label}
+                        </span>
+                        <span style={{ fontSize: "0.625rem", color: "#9ca3af" }}>attached · {timeAgo(v.created_at)}</span>
+                      </div>
+
+                      {/* row 3: who reviewed */}
+                      {v.reviewed_by_name && (
+                        <div style={{ display: "flex", alignItems: "center", gap: 5, marginBottom: 4, flexWrap: "wrap" }}>
+                          <span style={{ width: 5, height: 5, borderRadius: "50%", background: vRv.dot, display: "inline-block" }} />
+                          <span style={{ fontSize: "0.688rem", fontWeight: 600, color: "#374151" }}>
+                            {v.reviewed_by_name}
+                          </span>
+                          <span style={{ fontSize: "0.625rem", color: vRv.color, fontWeight: 500 }}>
+                            {v.review_status === "approved" ? "approved" : "requested revision"}
+                          </span>
+                          {v.reviewed_at && (
+                            <span style={{ fontSize: "0.625rem", color: "#9ca3af" }}>· {timeAgo(v.reviewed_at)}</span>
+                          )}
+                        </div>
+                      )}
+
+                      {/* version note */}
+                      {v.version_note && (
+                        <div style={{ fontSize: "0.688rem", color: "#6b7280", fontStyle: "italic", marginBottom: 4 }}>
+                          "{v.version_note}"
+                        </div>
+                      )}
+
+                      {/* row 4: status + download */}
+                      <div style={{ display: "flex", alignItems: "center", gap: 5 }}>
+                        {!v.reviewed_by_name && (
+                          <span style={{
+                            display: "inline-flex", alignItems: "center", gap: 3,
+                            fontSize: "0.625rem", color: vRv.color, fontWeight: 500,
+                          }}>
+                            <span style={{ width: 5, height: 5, borderRadius: "50%", background: vRv.dot, display: "inline-block" }} />
+                            {vRv.label}
+                          </span>
+                        )}
+                        <button
+                          onClick={() => onDownload(v.id)}
+                          title="Download"
+                          style={{ background: "none", border: "none", cursor: "pointer", color: "#a78bfa", padding: 0, lineHeight: 1, marginLeft: "auto" }}
+                        >
+                          <RiDownload2Line style={{ fontSize: 13 }} />
+                        </button>
+                      </div>
+
+                      {/* review actions — latest + pending only */}
+                      {isLatest && rvStatus === "pending" && (
+                        <div style={{ display: "flex", gap: 6, marginTop: 10, paddingTop: 10, borderTop: "1px solid #ede9fe" }}>
+                          <button
+                            disabled={reviewing}
+                            onClick={() => handleReviewClick("approved")}
+                            style={{
+                              flex: 1, display: "inline-flex", alignItems: "center", justifyContent: "center", gap: 4,
+                              fontSize: "0.75rem", fontWeight: 600, padding: "5px 0", borderRadius: 6,
+                              border: "1px solid #16a34a", background: "#f0fdf4", color: "#16a34a", cursor: "pointer",
+                            }}
+                          >
+                            <RiCheckLine style={{ fontSize: 13 }} /> Approve
+                          </button>
+                          <button
+                            disabled={reviewing}
+                            onClick={() => handleReviewClick("revision_requested")}
+                            style={{
+                              flex: 1, display: "inline-flex", alignItems: "center", justifyContent: "center", gap: 4,
+                              fontSize: "0.75rem", fontWeight: 600, padding: "5px 0", borderRadius: 6,
+                              border: "1px solid #dc2626", background: "#fef2f2", color: "#dc2626", cursor: "pointer",
+                            }}
+                          >
+                            <RiRefreshLine style={{ fontSize: 13 }} /> Request Revision
+                          </button>
+                        </div>
+                      )}
+                      {isLatest && rvStatus === "approved" && (
+                        <div style={{ marginTop: 8, paddingTop: 8, borderTop: "1px solid #d1fae5", display: "flex", alignItems: "center", gap: 5, fontSize: "0.688rem", color: "#16a34a", fontWeight: 500 }}>
+                          <RiCheckLine style={{ fontSize: 13 }} /> Approved — no further action needed
+                        </div>
+                      )}
+                      {isLatest && rvStatus === "revision_requested" && (
+                        <div style={{ marginTop: 8, paddingTop: 8, borderTop: "1px solid #fecaca", display: "flex", alignItems: "center", gap: 5, fontSize: "0.688rem", color: "#dc2626", fontWeight: 500 }}>
+                          <RiRefreshLine style={{ fontSize: 13 }} /> Revision requested — waiting for new upload
+                        </div>
+                      )}
+                    </div>
+                  </div>
+
+                  {/* ── Compare button between this and the next (older) version ── */}
+                  {nextV && (
+                    <div style={{ display: "flex", alignItems: "center", marginLeft: 34, marginBottom: 4 }}>
+                      <button
+                        onClick={() => setDiff({ a: nextV, b: v })}
+                        style={{
+                          display: "inline-flex", alignItems: "center", gap: 4,
+                          fontSize: "0.625rem", fontWeight: 600,
+                          padding: "2px 10px", borderRadius: 999,
+                          border: "1px solid #ddd6fe", background: "#faf5ff", color: "#7c3aed",
+                          cursor: "pointer",
+                        }}
+                      >
+                        <RiArrowLeftLine style={{ fontSize: 10 }} />
+                        Compare v{nextV.version} → v{v.version}
+                      </button>
+                    </div>
+                  )}
+                </div>
+              );
+            })}
+          </div>
+        )}
+      </div>
+    </>
   );
 }
 
@@ -451,8 +760,11 @@ export default function TaskDetailPage() {
   const [comments,     setComments]     = useState([]);
   const [commentText,  setCommentText]  = useState("");
   const [posting,      setPosting]      = useState(false);
-  const [uploadingAtt, setUploadingAtt] = useState(false);
-  const attachFileRef = useRef(null);
+  const [uploadingAtt,       setUploadingAtt]       = useState(false);
+  const [projectStakeholders, setProjectStakeholders] = useState([]);
+  const [showAssignDropdown,  setShowAssignDropdown]  = useState(false);
+  const attachFileRef  = useRef(null);
+  const assignRef      = useRef(null);
 
   async function loadAttachments() {
     try {
@@ -465,18 +777,20 @@ export default function TaskDetailPage() {
     async function load() {
       setLoading(true);
       try {
-        const [projRes, kanbanRes, attRes, histRes, commRes] = await Promise.all([
+        const [projRes, kanbanRes, attRes, histRes, commRes, shRes] = await Promise.all([
           getProject(projectId),
           getProjectKanban(projectId),
           getTaskAttachments(projectId, taskId).catch(() => ({ data: [] })),
           getTaskHistory(projectId, taskId).catch(() => ({ data: [] })),
           getTaskComments(projectId, taskId).catch(() => ({ data: [] })),
+          getProjectStakeholders(projectId).catch(() => ({ data: [] })),
         ]);
 
         setProject(projRes?.data || null);
         setAttachments(attRes?.data || []);
         setHistory(histRes?.data || []);
         setComments(commRes?.data || []);
+        setProjectStakeholders(shRes?.data || []);
 
         const cols = kanbanRes?.data?.columns || {};
         const allTasks = Object.values(cols).flat();
@@ -504,6 +818,15 @@ export default function TaskDetailPage() {
     load();
   }, [projectId, taskId]);
 
+  useEffect(() => {
+    if (!showAssignDropdown) return;
+    function handler(e) {
+      if (assignRef.current && !assignRef.current.contains(e.target)) setShowAssignDropdown(false);
+    }
+    document.addEventListener("mousedown", handler);
+    return () => document.removeEventListener("mousedown", handler);
+  }, [showAssignDropdown]);
+
   if (loading) return <LoadingShell />;
 
   if (!task) {
@@ -523,6 +846,23 @@ export default function TaskDetailPage() {
         <div className="topNav" />
       </div>
     );
+  }
+
+  async function handleAssignStakeholder(stakeholderId) {
+    const sh = stakeholderId ? projectStakeholders.find((s) => s.id === stakeholderId) : null;
+    setTask((prev) => ({
+      ...prev,
+      stakeholder_id:   stakeholderId || null,
+      stakeholder_name: sh?.name || null,
+      av:               sh ? getInitials(sh.name) : "",
+      avColor:          sh ? avatarColor(sh.id)   : "",
+    }));
+    setShowAssignDropdown(false);
+    try {
+      await assignStakeholderToTask(taskId, stakeholderId);
+    } catch (err) {
+      toast.error(err.message || "Failed to assign stakeholder");
+    }
   }
 
   async function handlePostComment(e) {
@@ -642,11 +982,93 @@ export default function TaskDetailPage() {
             <div className="tdMetaGrid">
               <div className="tdMetaItem">
                 <div className="tdMetaLabel">Assignee</div>
-                <div className="tdMetaValue">
-                  {task.av
-                    ? <Avatar initials={task.av} color={task.avColor} size="Sm" />
-                    : <div className="tdMetaNoAvatar"><RiUserLine style={{ fontSize: 13 }} /></div>}
-                  <span>{task.stakeholder_name || "Unassigned"}</span>
+                <div ref={assignRef} style={{ position: "relative" }}>
+                  <div
+                    className="tdMetaValue"
+                    onClick={() => setShowAssignDropdown((s) => !s)}
+                    style={{ cursor: "pointer", userSelect: "none",
+                      padding: "4px 8px", borderRadius: 6,
+                      border: "1px solid transparent",
+                      transition: "border-color 0.1s, background 0.1s",
+                    }}
+                    onMouseEnter={(e) => {
+                      e.currentTarget.style.borderColor = "#e9d5ff";
+                      e.currentTarget.style.background  = "#faf5ff";
+                    }}
+                    onMouseLeave={(e) => {
+                      e.currentTarget.style.borderColor = "transparent";
+                      e.currentTarget.style.background  = "transparent";
+                    }}
+                  >
+                    {task.av
+                      ? <Avatar initials={task.av} color={task.avColor} size="Sm" />
+                      : (
+                        <div style={{
+                          width: 22, height: 22, borderRadius: "50%",
+                          background: "#f3f4f6", border: "1.5px dashed #d1d5db",
+                          display: "flex", alignItems: "center", justifyContent: "center",
+                        }}>
+                          <RiUserAddLine style={{ fontSize: 11, color: "#9ca3af" }} />
+                        </div>
+                      )
+                    }
+                    <span style={{ color: task.stakeholder_name ? "#111827" : "#9ca3af" }}>
+                      {task.stakeholder_name || "Unassigned"}
+                    </span>
+                  </div>
+                  {showAssignDropdown && (
+                    <div
+                      style={{
+                        position: "absolute", top: "calc(100% + 4px)", left: 0, zIndex: 200,
+                        background: "#fff", borderRadius: 8,
+                        boxShadow: "0 4px 20px rgba(0,0,0,0.13)",
+                        border: "1px solid #e5e7eb", minWidth: 210, padding: "4px 0",
+                      }}
+                      onMouseDown={(e) => e.stopPropagation()}
+                    >
+                      {task.stakeholder_id && (
+                        <div
+                          onClick={() => handleAssignStakeholder(null)}
+                          style={{ padding: "7px 12px", fontSize: "0.75rem", color: "#ef4444",
+                            cursor: "pointer", fontWeight: 500, borderBottom: "1px solid #f3f4f6" }}
+                          onMouseEnter={(e) => e.currentTarget.style.background = "#fff5f5"}
+                          onMouseLeave={(e) => e.currentTarget.style.background = "transparent"}
+                        >
+                          Remove assignee
+                        </div>
+                      )}
+                      {projectStakeholders.length === 0 && !task.stakeholder_id && (
+                        <div style={{ padding: "10px 12px", fontSize: "0.75rem", color: "#9ca3af" }}>
+                          No team members on this project
+                        </div>
+                      )}
+                      {projectStakeholders.map((sh) => (
+                        <div
+                          key={sh.id}
+                          onClick={() => handleAssignStakeholder(sh.id)}
+                          style={{
+                            padding: "8px 12px", cursor: "pointer",
+                            display: "flex", alignItems: "center", gap: 9,
+                            background: sh.id === task.stakeholder_id ? "#f5f3ff" : "transparent",
+                          }}
+                          onMouseEnter={(e) => { if (sh.id !== task.stakeholder_id) e.currentTarget.style.background = "#f9fafb"; }}
+                          onMouseLeave={(e) => { if (sh.id !== task.stakeholder_id) e.currentTarget.style.background = sh.id === task.stakeholder_id ? "#f5f3ff" : "transparent"; }}
+                        >
+                          <Avatar initials={getInitials(sh.name)} color={avatarColor(sh.id)} size="Sm" />
+                          <div style={{ flex: 1, minWidth: 0 }}>
+                            <div style={{ fontSize: "0.812rem", fontWeight: 600, color: "#111827",
+                              overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
+                              {sh.name}
+                            </div>
+                            {sh.discipline && <div style={{ fontSize: "0.688rem", color: "#9ca3af" }}>{sh.discipline}</div>}
+                          </div>
+                          {sh.id === task.stakeholder_id && (
+                            <RiCheckLine style={{ fontSize: 13, color: "#7c3aed", flexShrink: 0 }} />
+                          )}
+                        </div>
+                      ))}
+                    </div>
+                  )}
                 </div>
               </div>
               <div className="tdMetaItem">

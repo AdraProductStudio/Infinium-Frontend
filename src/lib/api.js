@@ -302,6 +302,9 @@ export const uploadAttachmentVersion = (groupId, file, versionNote) => {
 export const getAttachmentGroupHistory = (groupId) =>
   axiosInstance.get(`/attachments/groups/${groupId}/history`).then((r) => r.data);
 
+export const getAttachmentUrl = (attachmentId) =>
+  axiosInstance.get(`/attachments/${attachmentId}/url`).then((r) => r.data?.data?.url || r.data?.url);
+
 export const reviewAttachment = (attachmentId, status, note) =>
   axiosInstance
     .put(`/attachments/${attachmentId}/review`, { status, note })
@@ -363,6 +366,15 @@ export const getProjectDecisions = (projectId) =>
 export const getProjectStakeholders = (projectId) =>
   axiosInstance.get(`/stakeholders/projects/${projectId}`).then((r) => r.data);
 
+export const assignStakeholderToProject = (projectId, stakeholderId) =>
+  axiosInstance.post(`/stakeholders/projects/${projectId}/assign`, { stakeholder_id: stakeholderId }).then((r) => r.data);
+
+export const removeStakeholderFromProject = (projectId, stakeholderId) =>
+  axiosInstance.delete(`/stakeholders/projects/${projectId}/${stakeholderId}`).then((r) => r.data);
+
+export const assignStakeholderToTask = (taskId, stakeholderId) =>
+  axiosInstance.patch(`/tasks/${taskId}/assign`, { stakeholder_id: stakeholderId }).then((r) => r.data);
+
 export const updateProjectTaskStatus = (projectId, taskId, status) =>
   axiosInstance
     .patch(`/projects/${projectId}/tasks/${taskId}/status`, { status })
@@ -407,6 +419,18 @@ export const acceptInvite = (token, password) =>
   }).then((r) => r.data);
 
 // ── Stakeholder Portal ────────────────────────────────────────────────────────
+
+export const getMyWork = () =>
+  axiosInstance.get("/my-work").then((r) => r.data);
+
+export const getStakeholderTaskComments = (projectId, taskId) =>
+  axiosInstance.get(`/stakeholder/projects/${projectId}/tasks/${taskId}/comments`).then((r) => r.data);
+
+export const addStakeholderTaskComment = (projectId, taskId, content) =>
+  axiosInstance.post(`/stakeholder/projects/${projectId}/tasks/${taskId}/comments`, { content }).then((r) => r.data);
+
+export const getStakeholderTaskHistory = (projectId, taskId) =>
+  axiosInstance.get(`/stakeholder/projects/${projectId}/tasks/${taskId}/history`).then((r) => r.data);
 
 export const getStakeholderTasks = () =>
   axiosInstance.get("/stakeholder/tasks").then((r) => r.data);

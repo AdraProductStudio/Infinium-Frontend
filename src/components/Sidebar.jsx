@@ -56,7 +56,12 @@ export default function Sidebar({ unreadCount }) {
           active={pathname.startsWith("/sites")}
           onClick={() => router.push("/sites")}
         />
-        <SidebarItem icon={<RiBriefcase2Line />} label="My Work" />
+        <SidebarItem
+          icon={<RiBriefcase2Line />}
+          label="My Work"
+          active={pathname === "/my-work"}
+          onClick={() => router.push("/my-work")}
+        />
         <SidebarItem icon={<RiPriceTag3Line />} label="Decisions" />
         <SidebarItem
           icon={<RiTeamLine />}
